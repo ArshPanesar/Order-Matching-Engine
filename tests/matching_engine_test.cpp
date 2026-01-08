@@ -2,6 +2,12 @@
 
 #include "matching_engine_test.h"
 
+
+// 
+// LIMIT ORDERS
+// 
+
+
 // Helper Functions
 OrderEvent MakeOrderEvent(Order id, eOrderEventType event_type, eOrderSide side, eOrderType type) {
     return OrderEvent{id, event_type, side, type};
@@ -230,4 +236,333 @@ TEST(MatchingEngineLimitOrdersTest, LongRunningTest) {
     EXPECT_EQ(sink.trade_event_list[7].ask_order_id, 8);
     EXPECT_EQ(sink.trade_event_list[7].executed_price, 100);
     EXPECT_EQ(sink.trade_event_list[7].filled_quantity, 1);
+}
+
+
+// 
+// MARKET ORDERS
+// 
+
+
+// Market Order on Empty Book
+TEST(MatchingEngineMarketOrdersTest, MarketOrderOnEmptyBook) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    Order s1{1, 1, 0, 5, 5};
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_1);
+
+    // No Trade should occur, order is rejected
+    EXPECT_EQ(sink.trade_event_list.size(), 0);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk(), nullptr); // Book Empty
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid(), nullptr); // Book Empty
+}
+
+// Market Order Fully Filled by a Single Ask
+TEST(MatchingEngineMarketOrdersTest, MarketOrderFullyFilled) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 50, 50};
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+
+    // Market Order
+    Order s2{2, 2, 0, 50, 50};
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_2);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 1); // Exactly One Trade
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk(), nullptr); // Book Emptied
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid(), nullptr); // Book Emptied
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 50);
+}
+
+// Market Order Partially Filled by a Single Ask
+TEST(MatchingEngineMarketOrdersTest, MarketOrderPartiallyFilled) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 100, 100};
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+
+    // Market Order
+    Order s2{2, 2, 0, 40, 40};
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_2);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 1); // Exactly One Trade
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 40);
+
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 60);
+}
+
+// Market Order at Multiple Price Levels
+TEST(MatchingEngineMarketOrdersTest, MarketOrderMultiplePriceLevels) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 50, 50};
+    Order s2{2, 2, 101, 60, 60};
+    Order s3{3, 3, 102, 40, 40};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    OrderEvent event_3 = MakeOrderEvent(s3, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+    engine.ProcessEvent(event_3);
+
+    // Market Order
+    Order m{4, 4, 0, 120, 120};
+    OrderEvent event_4 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_4);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 3);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 50);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 101);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 60);
+    
+    EXPECT_EQ(sink.trade_event_list[2].executed_price, 102);
+    EXPECT_EQ(sink.trade_event_list[2].filled_quantity, 10);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 102);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 30);
+}
+
+// Market Order exhausts Liquidity
+TEST(MatchingEngineMarketOrdersTest, MarketOrderExhaustsLiquidity) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 50, 50};
+    Order s2{2, 2, 101, 50, 50};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+
+    // Market Order
+    Order m{3, 3, 0, 200, 200};
+    OrderEvent event_3 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 2);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 50);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 101);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 50);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk(), nullptr);
+}
+
+// Market Sell Order
+TEST(MatchingEngineMarketOrdersTest, MarketOrderSell) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 99, 40, 40};
+    Order s2{2, 2, 98, 60, 60};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::BID, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+
+    // Market Order
+    Order m{3, 3, 0, 70, 70};
+    OrderEvent event_3 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 2);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 99);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 40);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 98);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 30);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->price, 98);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->remaining_quantity, 30);
+}
+
+// Market Order must Respect FIFO
+TEST(MatchingEngineMarketOrdersTest, MarketOrderFIFO) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 30, 30};
+    Order s2{2, 2, 100, 20, 20};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+
+    // Market Order
+    Order m{3, 3, 0, 40, 40};
+    OrderEvent event_3 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 2);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 30);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 10);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 10);
+}
+
+// Market Order exactly filled by Multiple Levels
+TEST(MatchingEngineMarketOrdersTest, MarketOrderExactFill) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 100, 50, 50};
+    Order s2{2, 2, 101, 50, 50};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+
+    // Market Order
+    Order m{3, 3, 0, 100, 100};
+    OrderEvent event_3 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 2);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 50);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 101);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 50);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk(), nullptr);
+}
+
+// Market Order does not touch same side
+TEST(MatchingEngineMarketOrdersTest, MarketOrderIgnoreSameSide) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    // Initial Book with a Single Ask
+    Order s1{1, 1, 99, 50, 50};
+    Order s2{2, 2, 98, 50, 50};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::LIMIT);
+    OrderEvent event_2 = MakeOrderEvent(s2, eOrderEventType::NEW, eOrderSide::BID, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    engine.ProcessEvent(event_2);
+
+    // Market Order
+    Order m{3, 3, 0, 100, 100};
+    OrderEvent event_3 = MakeOrderEvent(m, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 0);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->price, 99);
+}
+
+// Multiple Market Orders
+TEST(MatchingEngineMarketOrdersTest, MultipleMarketOrders) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    Order s1{1, 1, 100, 100, 100};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    
+    // Market Order
+    Order m1{2, 2, 0, 30, 30};
+    Order m2{3, 3, 0, 50, 50};
+    
+    OrderEvent event_2 = MakeOrderEvent(m1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    OrderEvent event_3 = MakeOrderEvent(m2, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+    
+    engine.ProcessEvent(event_2);
+    engine.ProcessEvent(event_3);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 2);
+
+    
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 30);
+
+    EXPECT_EQ(sink.trade_event_list[1].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[1].filled_quantity, 50);
+    
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 20);
+}
+
+// Infinite Loop Test (Stuck Pointer)
+TEST(MatchingEngineMarketOrdersTest, NoInfiniteLoop) {
+    TestTradeEventSink sink;
+    MatchingEngine<TestTradeEventSink> engine(sink);
+
+    Order s1{1, 1, 100, 10, 10};
+    
+    OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
+    
+    engine.ProcessEvent(event_1);
+    
+    // Market Order
+    Order m1{2, 2, 0, 10, 10};
+    
+    OrderEvent event_2 = MakeOrderEvent(m1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
+
+    engine.ProcessEvent(event_2);
+
+    ASSERT_EQ(sink.trade_event_list.size(), 1);
+
+    EXPECT_EQ(sink.trade_event_list[0].executed_price, 100);
+    EXPECT_EQ(sink.trade_event_list[0].filled_quantity, 10);
+
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk(), nullptr);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid(), nullptr);
 }

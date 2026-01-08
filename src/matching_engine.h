@@ -108,6 +108,36 @@ private:
                 // Does not Cross the Book, Must Rest
                 order_book.AddOrder(new_order, order_side);
             }
+        } else if (order_type == eOrderType::MARKET) {
+            // Check Opposite Side
+            Order* current_best_opp = GetOppositeSideBestOrder();
+            if (current_best_opp == nullptr) {
+                // Market Order Rejected
+                return;
+            }
+
+            // Duplicated Limit Order Matching Loop (slightly changed for Market Order) for Clarity
+            while (current_best_opp != nullptr && new_order.remaining_quantity > 0) {
+                // Execute Trade
+                OrderQuantity trade_quantity = std::min(new_order.remaining_quantity, current_best_opp->remaining_quantity);
+                new_order.remaining_quantity -= trade_quantity;
+                current_best_opp->remaining_quantity -= trade_quantity;
+                
+                // Generate Trade Event
+                TradeEvent new_trade_event = GenerateTradeEvent(&new_order, current_best_opp, order_side, current_best_opp->price, trade_quantity);
+                // Immediately Push to Sink
+                trade_event_sink.Accept(new_trade_event);
+
+                if (current_best_opp->remaining_quantity == 0) 
+                    order_book.RemoveOrder(*current_best_opp, GetOppositeSide());  // Resting Order Fully Filled
+
+                // New Order fully filled
+                if (new_order.remaining_quantity == 0)
+                    break;
+                                    
+                // Move to next
+                current_best_opp = GetOppositeSideBestOrder();
+            }
         }
     }
 
