@@ -1,6 +1,30 @@
 #include "order_book.h"
 
-void OrderBook::AddOrder(const Order &new_order, const eOrderSide side) {
+Order *OrderBook::AccessBestBid() {
+    // Best Bid will be at the Highest Price Level
+    if (!bids_table.empty()) {
+        // Last Key of Table and First Order in FIFO Queue (Time Priority) is the Best Bid
+        auto& fifo_queue = bids_table.rbegin()->second;
+        return &fifo_queue.front();
+    }
+
+    return nullptr;
+}
+
+Order *OrderBook::AccessBestAsk() {
+    // Best Ask will be at the Lowest Price Level
+    if (!asks_table.empty()) {
+        // First Key of Table and First Order in FIFO Queue (Time Priority) is the Best Ask
+        auto& fifo_queue = asks_table.begin()->second;
+        return &fifo_queue.front();
+    }
+
+    return nullptr;
+}
+
+
+void OrderBook::AddOrder(const Order &new_order, const eOrderSide side)
+{
 
     // Determine Side Table
     auto& price_levels_table = (side == eOrderSide::BID) ? bids_table : asks_table;
@@ -36,7 +60,7 @@ void OrderBook::RemoveOrder(const Order &old_order, const eOrderSide side) {
         price_levels_table.erase(old_order.price);
 }
 
-const Order *OrderBook::GetBestBid() const {
+const Order* OrderBook::GetBestBid() const {
     // Best Bid will be at the Highest Price Level
     if (!bids_table.empty()) {
         // Last Key of Table and First Order in FIFO Queue (Time Priority) is the Best Bid
@@ -47,7 +71,7 @@ const Order *OrderBook::GetBestBid() const {
     return nullptr;
 }
 
-const Order *OrderBook::GetBestAsk() const {
+const Order* OrderBook::GetBestAsk() const {
     // Best Ask will be at the Lowest Price Level
     if (!asks_table.empty()) {
         // First Key of Table and First Order in FIFO Queue (Time Priority) is the Best Ask

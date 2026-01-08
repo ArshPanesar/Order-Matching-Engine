@@ -41,7 +41,7 @@ private:
         return new_trade_event;
     }
 
-    void OnNewOrderEvent(const OrderEvent& order_event) {
+    void OnNewOrderEvent(OrderEvent& order_event) {
         // Process a New Order
         Order& new_order = order_event.order;
         eOrderSide order_side = order_event.side;
@@ -49,7 +49,7 @@ private:
 
         // Lambdas as easy utility
         auto GetOppositeSideBestOrder = [&]() -> Order* {
-            return (order_side == eOrderSide::BID) ? order_book.GetBestAsk() : order_book.GetBestBid();
+            return (order_side == eOrderSide::BID) ? order_book.AccessBestAsk() : order_book.AccessBestBid();
         };
         auto GetOppositeSide = [&]() -> eOrderSide {
             return (order_side == eOrderSide::BID) ? eOrderSide::ASK : eOrderSide::BID;
@@ -88,17 +88,21 @@ private:
 
                     if (current_best_opp->remaining_quantity == 0) 
                         order_book.RemoveOrder(*current_best_opp, GetOppositeSide());  // Resting Order Fully Filled
-                    
+
                     // New Order fully filled
                     if (new_order.remaining_quantity == 0)
                         break;
-                    
+                                        
                     // Move to next
                     current_best_opp = GetOppositeSideBestOrder();
                 }
                 
-                if (current_best_opp == nullptr && new_order.remaining_quantity > 0)
-                    order_book.AddOrder(new_order);
+                // Add New Order to the Book if it still has Non-Zero Quantity
+                if (new_order.remaining_quantity > 0) {
+                    current_best_opp = GetOppositeSideBestOrder();
+                    if (current_best_opp == nullptr || !IsBookCrossed(current_best_opp))
+                        order_book.AddOrder(new_order, order_side);
+                }
 
             } else {
                 // Does not Cross the Book, Must Rest
@@ -114,7 +118,7 @@ public:
     
     ~MatchingEngine() = default;
 
-    void ProcessEvent(const OrderEvent& order_event) {
+    void ProcessEvent(OrderEvent& order_event) {
         switch(order_event.event_type) {
             case eOrderEventType::NEW:
                 OnNewOrderEvent(order_event);
@@ -129,4 +133,7 @@ public:
                 break;
         }
     }
+
+    // Getters
+    const OrderBook* GetOrderBook() const { return &order_book; }
 };

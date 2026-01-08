@@ -14,6 +14,7 @@ add_executable(RunTests
     order_core_test.cpp
     order_book_test.cpp
     matching_core_test.cpp
+    matching_engine_test.cpp
 )
 
 # Link to LimitOrderBookLib and GoogleTest

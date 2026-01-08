@@ -11,6 +11,7 @@ target_sources(LimitOrderBookLib PRIVATE
     src/order_core.cpp
     src/order_book.cpp
     src/matching_core.cpp
+    src/matching_engine.cpp
 )
 
 target_include_directories(LimitOrderBookLib PUBLIC
