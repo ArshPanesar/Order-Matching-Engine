@@ -21,3 +21,11 @@ public:
         trade_event_list.clear();
     }
 };
+
+
+
+// Helper Functions
+inline OrderEvent MakeOrderEvent(Order id, eOrderEventType event_type, eOrderSide side, eOrderType type) {
+    return OrderEvent{id, event_type, side, type};
+}
+

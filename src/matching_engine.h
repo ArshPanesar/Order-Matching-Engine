@@ -87,7 +87,7 @@ private:
                     trade_event_sink.Accept(new_trade_event);
 
                     if (current_best_opp->remaining_quantity == 0) 
-                        order_book.RemoveOrder(*current_best_opp, GetOppositeSide());  // Resting Order Fully Filled
+                        order_book.RemoveOrder(current_best_opp->id, GetOppositeSide());  // Resting Order Fully Filled
 
                     // New Order fully filled
                     if (new_order.remaining_quantity == 0)
@@ -129,7 +129,7 @@ private:
                 trade_event_sink.Accept(new_trade_event);
 
                 if (current_best_opp->remaining_quantity == 0) 
-                    order_book.RemoveOrder(*current_best_opp, GetOppositeSide());  // Resting Order Fully Filled
+                    order_book.RemoveOrder(current_best_opp->id, GetOppositeSide());  // Resting Order Fully Filled
 
                 // New Order fully filled
                 if (new_order.remaining_quantity == 0)
@@ -137,6 +137,22 @@ private:
                                     
                 // Move to next
                 current_best_opp = GetOppositeSideBestOrder();
+            }
+        }
+    }
+
+    void OnCancelOrderEvent(OrderEvent& order_event) {
+        order_book.RemoveOrder(order_event.order.id, order_event.side);
+    }
+
+    void OnAmendOrderEvent(OrderEvent& order_event) {
+        const Order* amend_order = order_book.GetOrderByID(order_event.order.id);
+        if (amend_order != nullptr) {
+            // Cannot Amend a Partially Filled Order
+            if (amend_order->initial_quantity == amend_order->remaining_quantity) {
+                // Cancel and Immediately Add the Amended Order as a new Order
+                OnCancelOrderEvent(order_event);
+                OnNewOrderEvent(order_event);
             }
         }
     }
@@ -155,11 +171,11 @@ public:
                 break;
             
             case eOrderEventType::CANCEL:
-                // TODO
+                OnCancelOrderEvent(order_event);
                 break;
             
             case eOrderEventType::AMEND:
-                // TODO
+                OnAmendOrderEvent(order_event);
                 break;
         }
     }

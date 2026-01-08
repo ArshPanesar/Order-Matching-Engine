@@ -28,8 +28,10 @@ public:
     ~OrderBook() = default;
 
     void AddOrder(const Order& new_order, const eOrderSide side);
-    void RemoveOrder(const Order& old_order, const eOrderSide side);
+    void RemoveOrder(const OrderID& old_order_id, const eOrderSide side);
 
     const Order* GetBestBid() const;
     const Order* GetBestAsk() const;
+
+    const Order* GetOrderByID(const OrderID& order_id) const;
 };

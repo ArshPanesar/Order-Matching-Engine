@@ -85,7 +85,7 @@ TEST(OrderBookTest, RemovingOrder) {
     book.AddOrder(order_1, eOrderSide::BID);
     book.AddOrder(order_2, eOrderSide::BID);
     
-    book.RemoveOrder(order_1, eOrderSide::BID);
+    book.RemoveOrder(order_1.id, eOrderSide::BID);
 
     const Order* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
@@ -99,7 +99,7 @@ TEST(OrderBookTest, RemovingPriceLevel) {
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_1, eOrderSide::BID);
+    book.RemoveOrder(order_1.id, eOrderSide::BID);
 
     const Order* best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
@@ -114,7 +114,7 @@ TEST(OrderBookTest, RemovingNonExistantOrder) {
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_2, eOrderSide::BID);
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
 
     const Order* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
@@ -159,18 +159,18 @@ TEST(OrderBookTest, PriceLevelSortingCorrectness) {
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3, eOrderSide::BID);
+    book.RemoveOrder(order_3.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2, eOrderSide::BID);
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1, eOrderSide::BID);
+    book.RemoveOrder(order_1.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
@@ -179,18 +179,18 @@ TEST(OrderBookTest, PriceLevelSortingCorrectness) {
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
 
-    book.RemoveOrder(order_5, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
@@ -222,18 +222,18 @@ TEST(OrderBookTest, FIFOSortingCorrectness) {
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1, eOrderSide::BID);
+    book.RemoveOrder(order_1.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2, eOrderSide::BID);
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3, eOrderSide::BID);
+    book.RemoveOrder(order_3.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
@@ -242,18 +242,18 @@ TEST(OrderBookTest, FIFOSortingCorrectness) {
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
 
-    book.RemoveOrder(order_5, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
@@ -285,18 +285,18 @@ TEST(OrderBookTest, GeneralSortingCorrectness) {
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1, eOrderSide::BID);
+    book.RemoveOrder(order_1.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2, eOrderSide::BID);
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3, eOrderSide::BID);
+    book.RemoveOrder(order_3.id, eOrderSide::BID);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
@@ -305,18 +305,46 @@ TEST(OrderBookTest, GeneralSortingCorrectness) {
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
-
-    book.RemoveOrder(order_5, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id, eOrderSide::ASK);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
+}
+
+// Search for Existing Order by ID
+TEST(OrderBookTest, SearchExistingOrder) {
+    OrderBook book;
+    Order order_1 = CreateOrder(1, 100, 10);
+    Order order_2 = CreateOrder(2, 101, 10);
+    
+    book.AddOrder(order_1, eOrderSide::BID);
+    
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
+
+    const Order* best_bid = book.GetOrderByID(1);
+    ASSERT_NE(best_bid, nullptr);
+    EXPECT_EQ(best_bid->id, 1u);
+}
+
+// Search for Non-Existant Order by ID
+TEST(OrderBookTest, SearchNonExistantOrder) {
+    OrderBook book;
+    Order order_1 = CreateOrder(1, 100, 10);
+    Order order_2 = CreateOrder(2, 101, 10);
+    
+    book.AddOrder(order_1, eOrderSide::BID);
+    
+    book.RemoveOrder(order_2.id, eOrderSide::BID);
+
+    const Order* best_bid = book.GetOrderByID(2);
+    EXPECT_EQ(best_bid, nullptr);
 }
