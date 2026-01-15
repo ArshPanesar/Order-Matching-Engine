@@ -39,6 +39,7 @@ target_compile_definitions(LimitOrderBookLib PRIVATE
 add_executable(OrderEventGenerator)
 
 target_sources(OrderEventGenerator PRIVATE
+    src/order_event_generator/generator.cpp
     src/order_event_generator/generator_main.cpp
 )
 
