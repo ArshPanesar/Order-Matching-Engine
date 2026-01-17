@@ -3,6 +3,27 @@
 
 #include "matching_engine.h"
 
+class TestOrderEventSink {
+public:
+    // Simple Queue
+    std::queue<OrderEvent> order_event_queue;
+
+public:
+    TestOrderEventSink() = default;
+    ~TestOrderEventSink() = default;
+
+    void Add(const OrderEvent& order_event) {
+        order_event_queue.push(order_event);
+    }
+
+    // Conform to Concept
+    OrderEvent ExtractNext() {
+        OrderEvent event = order_event_queue.front();
+        order_event_queue.pop();
+        return event;
+    }
+};
+
 class TestTradeEventSink {
 public:
     // Simple List
@@ -29,3 +50,7 @@ inline OrderEvent MakeOrderEvent(Order id, eOrderEventType event_type, eOrderSid
     return OrderEvent{id, event_type, side, type};
 }
 
+inline void ProcessSingleEvent(const OrderEvent& event, TestOrderEventSink& order_sink, MatchingEngine<TestOrderEventSink, TestTradeEventSink>& engine) {
+    order_sink.Add(event);
+    engine.Run();
+}

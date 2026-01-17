@@ -4,8 +4,9 @@
 #include "order_book.h"
 
 // Matching Engine maintains an Order Book, processes incoming Order Events and executes Trades per Instrument
+// All incoming Orders are input as OrderEvents into the injected OrderEventSink
 // All executed Trades are output as TradeEvents into the injected TradeEventSink
-template<TradeEventSinkConcept TradeEventSink>
+template<OrderEventSinkConcept OrderEventSink, TradeEventSinkConcept TradeEventSink>
 class MatchingEngine {
 private:
     OrderBook order_book;
@@ -14,6 +15,7 @@ private:
     TradeID avail_trade_id = 0;
 
     // Reference to Sink
+    OrderEventSink& order_event_sink;
     TradeEventSink& trade_event_sink;
 
 private:
@@ -158,13 +160,17 @@ private:
     }
 
 public:
-    explicit MatchingEngine(TradeEventSink& sink) : 
-        trade_event_sink(sink) 
+    explicit MatchingEngine(OrderEventSink& orders_sink, TradeEventSink& trades_sink) : 
+        order_event_sink(orders_sink),
+        trade_event_sink(trades_sink) 
         {};
     
     ~MatchingEngine() = default;
 
-    void ProcessEvent(OrderEvent& order_event) {
+    void Run() {
+        // Extract Next Event
+        OrderEvent order_event = order_event_sink.ExtractNext();
+        // Process Event based on Type
         switch(order_event.event_type) {
             case eOrderEventType::NEW:
                 OnNewOrderEvent(order_event);

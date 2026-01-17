@@ -35,13 +35,22 @@ struct TradeEvent {
     OrderQuantity filled_quantity{};
 };
 
+//
+// For Flexibility of Matching Engine I/O, a "Sink" concept will be used to allow various implementations of Input or Output Containers of Events
+// Sinks are defined as Template Concepts below.
+//
 
-// For Flexibility of Matching Engine Output, a "Sink" concept will be used to allow various
-// implementations of containers/processors of Trade Events. The Matching Engine will send executed Trades through TradeEvents
-// to these sinks
+// Matching Engine will accept incoming OrderEvents through sinks derived from the concept below
 template<typename SinkType>
-concept TradeEventSinkConcept = requires(SinkType sink, const TradeEvent& trade_event) {
-    // Must have "Accept" method to accept any incoming TradeEvents
+concept OrderEventSinkConcept = requires(SinkType& sink) {
+    // Must have "ExtractNext" method to push out incoming OrderEvents (in sequence of arrival)
+    { sink.ExtractNext() } -> std::same_as<OrderEvent>;
+};
+
+// Matching Engine will send executed Trades through TradeEvents to sinks derived from the concept below
+template<typename SinkType>
+concept TradeEventSinkConcept = requires(SinkType& sink, const TradeEvent& trade_event) {
+    // Must have "Accept" method to accept any outgoing TradeEvents
     { sink.Accept(trade_event) } -> std::same_as<void>;
 };
 

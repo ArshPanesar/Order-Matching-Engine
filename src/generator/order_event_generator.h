@@ -48,6 +48,26 @@ private:
 
     // Internal Reference Matching Engine
     //
+    // OrderEvent Sink for Generator's Internal Matching Engine
+    class GeneratorOrderSink {
+    public:
+        // Simple List
+        std::queue<OrderEvent> order_event_queue;
+
+    public:
+        GeneratorOrderSink() = default;
+        ~GeneratorOrderSink() = default;
+
+        void Add(const OrderEvent& order_event) {
+            order_event_queue.push(order_event);
+        }
+
+        // Conform to Concept
+        OrderEvent ExtractNext() {
+            OrderEvent event = order_event_queue.front();
+            return event;
+        }
+    };
     // TradeEvent Sink for Generator's Internal Matching Engine
     class GeneratorTradeSink {
     public:
@@ -63,9 +83,10 @@ private:
             trade_event_list.push_back(trade_event);
         }
     };
+    GeneratorOrderSink order_sink;
     GeneratorTradeSink trade_sink;
     // Internal Matching Engine
-    MatchingEngine<GeneratorTradeSink> matching_engine;
+    MatchingEngine<GeneratorOrderSink, GeneratorTradeSink> matching_engine;
 
 public:
     explicit OrderEventGenerator(uint64_t seed = 42);

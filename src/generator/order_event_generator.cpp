@@ -1,4 +1,4 @@
-#include "generator.h"
+#include "order_event_generator.h"
 #include <iostream>
 
 OrderEventGenerator::OrderEventGenerator(uint64_t seed) : 
@@ -21,8 +21,9 @@ OrderEventGenerator::OrderEventGenerator(uint64_t seed) :
     event_type_dist(),
     geo_dist(geo_dist_prob),
     active_orders_set(),
+    order_sink(),
     trade_sink(),
-    matching_engine(trade_sink) {
+    matching_engine(order_sink, trade_sink) {
 
     // Setup Event Type Weights
     event_type_weights.push_back(0.7f); // NEW
@@ -118,7 +119,8 @@ OrderEvent OrderEventGenerator::Step() {
     new_event.type = (uniform_dist_01(rng) < limit_order_chance) ? eOrderType::LIMIT : eOrderType::MARKET;
 
     // Run Internal Engine
-    matching_engine.ProcessEvent(new_event);
+    order_sink.Add(new_event);
+    matching_engine.Run();
     // Remove Executed Orders (Also removes partially filled orders, this is intended)
     // std::cout << trade_sink.trade_event_list.size() << "\n";
     for (TradeEvent& trade_event : trade_sink.trade_event_list) {

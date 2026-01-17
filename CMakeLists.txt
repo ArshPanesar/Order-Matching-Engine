@@ -23,6 +23,7 @@ target_compile_features(LimitOrderBookLib PRIVATE cxx_std_20)
 # Compiler Options
 target_compile_options(LimitOrderBookLib PRIVATE
     $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
     $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
 )
 
@@ -33,28 +34,13 @@ target_compile_definitions(LimitOrderBookLib PRIVATE
 )
 
 # 
-# Generator Executable
-# 
-
-add_executable(OrderEventGenerator)
-
-target_sources(OrderEventGenerator PRIVATE
-    src/order_event_generator/generator.cpp
-    src/order_event_generator/generator_main.cpp
-)
-
-# Link to LimitOrderBookLib
-target_link_libraries(OrderEventGenerator PRIVATE LimitOrderBookLib)
-
-target_compile_features(OrderEventGenerator PRIVATE cxx_std_20)
-
-# 
 # Main Executable
 # 
 
 add_executable(LimitOrderBookProgram)
 
 target_sources(LimitOrderBookProgram PRIVATE
+    src/generator/order_event_generator.cpp
     src/main.cpp
 )
 

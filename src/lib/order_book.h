@@ -4,16 +4,19 @@
 
 #include "matching_core.h"
 
+// Declaring MatchingEngine before OrderBook is defined
+template<OrderEventSinkConcept, TradeEventSinkConcept>
+class MatchingEngine;
+
+
 using FIFOContainer = std::deque<Order>;
 using PriceLevelContainer = std::map<OrderPrice, FIFOContainer>;
 
-template<TradeEventSinkConcept>
-class MatchingEngine;
 
 class OrderBook {
 private:
     // MatchingEngine has authorization to change OrderBooks!
-    template<TradeEventSinkConcept>
+    template<OrderEventSinkConcept, TradeEventSinkConcept>
     friend class MatchingEngine;
 
     PriceLevelContainer bids_table;
