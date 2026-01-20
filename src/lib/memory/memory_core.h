@@ -6,33 +6,38 @@
 
 #define CACHE_LINE_SIZE 64u
 
-// A Source of Memory (Intended to contain Large Heap Allocations that persist throughout the execution of the program)
-class MemoryResource {
+inline uintptr_t compute_aligned_address(uintptr_t addr, size_t alignment) noexcept {
+    return (addr + (alignment - 1)) & ~(alignment - 1);
+}
+
+// Main Allocator for the Engine (Implemented as a Free List)
+// Intended to contain Large Heap Allocations that persist throughout the execution of the program
+class MemoryAllocator {
 private:
+    // Free List
+    struct Region {
+        size_t size{}; // Total Size Available (Excludes this Header)
+        size_t padding{}; // Any Padding applied BEFORE this Header (Useful when Freeing Regions)
+        Region* next = nullptr;
+    };
+    
+    Region* head;
+
+    // Heap Allocation
     void* base_ptr;
-    size_t current_offset;
     size_t total_size;
 
 public:
     // Allocate on Construct
-    explicit MemoryResource(size_t num_bytes);
+    explicit MemoryAllocator(size_t num_bytes);
     // Free on Destruct
-    ~MemoryResource();
+    ~MemoryAllocator();
 
     // Non-Copyable
-    MemoryResource(const MemoryResource&) = delete;
-    MemoryResource& operator=(const MemoryResource&) = delete;
-
-    // Allocate within Resource
-    // NOTE: aligment == 0 will Align the requested Buffer by std::max_align_t (Alignment that works for all fundamental types)
-    void* Allocate(size_t num_bytes, size_t alignment);
-
-    // Clear Memory Usage (Only moves offset pointer backwards, does not free memory)
-    // WARN: Any Addresses allocated within this resource will be invalidated!
-    void Reset();
-
-    // Stats
-    size_t GetTotalAmt() const noexcept;
-    size_t GetAllocatedAmt() const noexcept;
-    size_t GetFreeAmt() const noexcept;
+    MemoryAllocator(const MemoryAllocator&) = delete;
+    MemoryAllocator& operator=(const MemoryAllocator&) = delete;
+    
+    // Allocate from a Free Region
+    void* Allocate(size_t bytes, size_t alignment);
+    void Free(void* ptr);
 };
