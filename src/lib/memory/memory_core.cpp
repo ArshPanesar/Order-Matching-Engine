@@ -5,27 +5,38 @@
 
 #include "memory_core.h"
 
-MemoryAllocator::MemoryAllocator(size_t num_bytes) :
+bool MemoryAllocator::CanCoalesce(Region* prev, Region* next) {
+    uintptr_t prev_addr = reinterpret_cast<uintptr_t>(prev);
+    uintptr_t next_addr = reinterpret_cast<uintptr_t>(next);
+    
+    uintptr_t prev_end = prev_addr + sizeof(Region) + prev->size;
+
+    return prev_end == next_addr;
+}
+
+MemoryAllocator::MemoryAllocator(size_t num_bytes) : 
     head(nullptr),
     base_ptr(nullptr),
-    total_size(num_bytes) {
-    
+    total_size(num_bytes),
+    available_bytes(0u),
+    used_bytes(0u) {
     // Additional Bytes for Header
-    size_t total_bytes = num_bytes + sizeof(Region);
+    size_t required_size = num_bytes + sizeof(Region);
     
-    // Allocated Size must be a multiple of the Alignment
-    size_t alignment = alignof(Region); // Align to Free List Header
-    total_size = (total_bytes + (alignment - 1)) & ~(alignment - 1);
-    base_ptr = aligned_alloc(alignment, total_size);
+    // Allocate Buffer
+    base_ptr = malloc(required_size);
     assert(base_ptr != nullptr);
     
+    total_size = required_size;
     memset(base_ptr, 0, total_size);
 
     // Initialize Free List
     head = reinterpret_cast<Region*>(base_ptr);
     head->size = total_size - sizeof(Region);
-    head->padding = 0u; // We don't care about any initial padding since we only need the requested total_size
+    head->padding = 0u; // No padding for initial memory region
     head->next = nullptr;
+
+    available_bytes = head->size;
 }
 
 MemoryAllocator::~MemoryAllocator() {
@@ -46,7 +57,7 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
     while (avail != nullptr) {
         // Align Address
         uintptr_t avail_addr = reinterpret_cast<uintptr_t>(avail) + sizeof(Region);
-        uintptr_t aligned_addr = compute_aligned_address(avail_addr, alignment);
+        uintptr_t aligned_addr = ComputeAlignedAddress(avail_addr, alignment);
         size_t padding = aligned_addr - avail_addr;
 
         // Find Available Block
@@ -78,13 +89,16 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
             }
 
             // Move Available Region's Header right before the aligned address
-            // Gap left after move is exactly equal to required Padding! 
+            // This enables Free(ptr) to easily access the Header for any valid ptr 
             uintptr_t moved_header_addr = aligned_addr - sizeof(Region);
             Region* requested = reinterpret_cast<Region*>(moved_header_addr);
             requested->size = bytes;
             requested->padding = padding; // Behind this Header
-            requested->next = nullptr; // Out of List so we don't care
+            requested->next = nullptr; // Region is no longer free
             
+            available_bytes -= required_size;
+            used_bytes += required_size;
+
             return reinterpret_cast<void*>(aligned_addr);
         }
         
@@ -101,8 +115,12 @@ void MemoryAllocator::Free(void *ptr) {
     if (!ptr)
         return;
     
-    // Move Address Backwards to get the Header
+    // Ensure Address Fits within the Heap Allocated Block
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+    assert(addr >= (uintptr_t)base_ptr);
+    assert(addr <= (uintptr_t)base_ptr + total_size);
+    
+    // Move Address Backwards to get the Header
     uintptr_t header_addr = addr - sizeof(Region);
     
     // Extract Header Info
@@ -118,14 +136,18 @@ void MemoryAllocator::Free(void *ptr) {
     orig_region->size = alloc_size + alloc_padding; // Exclude Header Size
     orig_region->padding = 0u;
 
+    available_bytes += orig_region->size;
+    used_bytes -= orig_region->size;
+
     if (head == nullptr) {
         // No Other Free Blocks
         head = orig_region;
         return;
     }
 
-    // Add Free Region back to List by Coalescing
-    // Find where Region should exist
+    // Add Free Region back to the List by Coalescing
+    //
+    // Find where the Region should exist
     Region* prev = nullptr;
     Region* curr = head;
     while (curr != nullptr) {
@@ -134,38 +156,31 @@ void MemoryAllocator::Free(void *ptr) {
         prev = curr;
         curr = curr->next;
     }
-    // If Merge Not Possible, then the order will be prev -> orig_region -> curr
-    //
+    // Order should be prev -> orig_region -> curr
+    orig_region->next = curr;
+    if (prev != nullptr)
+        prev->next = orig_region;
+    else
+        head = orig_region;
+
     // Try Merging with Next Region
-    if (curr != nullptr) {
-        uintptr_t curr_addr = reinterpret_cast<uintptr_t>(curr);
-        uintptr_t orig_region_end = orig_region_addr + sizeof(Region) + orig_region->size;
-        if (curr_addr == orig_region_end) {
-            // Merge
-            orig_region->size += sizeof(Region) + curr->size; // Padding not included since Free Regions should always have 0 Padding 
-            orig_region->padding = 0u;
-            orig_region->next = curr->next; // Newly Freed Region consumes curr
-        } else {
-            // Can't Merge
-            orig_region->next = curr;
-        }
-    } else {
-        orig_region->next = nullptr;
+    if (curr != nullptr && CanCoalesce(orig_region, curr)) {
+        orig_region->size += sizeof(Region) + curr->size; // Padding not included since Free Regions should always have 0 Padding
+        orig_region->padding = 0u;
+        orig_region->next = curr->next; 
     }
     // Try Merging with Previous Region
-    if (prev != nullptr) {
-        uintptr_t prev_addr = reinterpret_cast<uintptr_t>(prev);
-        uintptr_t prev_end = prev_addr + prev->size + sizeof(Region);
-        if (orig_region_addr == prev_end) {
-            // Merge
-            prev->size += sizeof(Region) + orig_region->size; // Padding not included since Free Regions should always have 0 Padding 
-            prev->padding = 0u;
-            prev->next = orig_region->next; // prev consumes Newly Freed Region
-        } else {
-            // Can't Merge
-            prev->next = orig_region;
-        }
-    } else {
-        head = orig_region;
+    if (prev != nullptr && CanCoalesce(prev, orig_region)) {
+        prev->size += sizeof(Region) + orig_region->size; // Padding not included since Free Regions should always have 0 Padding
+        prev->padding = 0u;
+        prev->next = orig_region->next; 
     }
+}
+
+const size_t MemoryAllocator::GetUsedBytes() const {
+    return used_bytes;
+}
+
+const size_t MemoryAllocator::GetFreeBytes() const {
+    return available_bytes;
 }
