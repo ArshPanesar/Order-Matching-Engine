@@ -28,8 +28,8 @@ private:
     size_t total_size;
 
     // Stats
-    size_t available_bytes;
-    size_t used_bytes;
+    size_t free_bytes; // Excluding Header Size
+    size_t allocated_bytes; // Excluding Header Size and Padding
 
     bool CanCoalesce(Region* prev, Region* next);
 
@@ -47,7 +47,30 @@ public:
     void* Allocate(size_t bytes, size_t alignment);
     void Free(void* ptr);
 
-    // Allocator Usage Stats (Includes Padding)
-    const size_t GetUsedBytes() const;
-    const size_t GetFreeBytes() const;
+    // Total Number of Bytes Allocated (excluding padding/header bytes)
+    size_t GetAllocatedBytes() const;
+    // Total Number of Free Bytes (excluding header bytes)
+    size_t GetFreeBytes() const;
+    // Total Number of Heap Bytes
+    size_t GetTotalBytes() const; 
+
+private:
+
+#ifdef LOB_DEBUG
+    // Internal Verification Tests
+    //
+    // Verify Regions exist in correct Order of Addresses (Should be Strictly Increasing)
+    void VerifyRegionsIncreasingOrder();
+    // Verify Regions do not overlap
+    void VerifyNonOverlappingRegions();
+    // Verify No Adjacent Regions exist
+    void VerifyCoalescenceImpossible();
+    // Verify No Region with Size less than zero exists in the FreeList
+    void VerifyNonZeroRegions();
+    // Verify Total Number of Free Bytes is always equal to internal tracker `free_bytes`
+    void VerifyFreeBytes();
+
+    void RunVerificationTests();
+#endif //LOB_DEBUG
+
 };
