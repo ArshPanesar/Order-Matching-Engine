@@ -1,3 +1,5 @@
+#define LOB_DEBUG
+
 #include <gtest/gtest.h>
 #include "memory/memory_core.h"
 

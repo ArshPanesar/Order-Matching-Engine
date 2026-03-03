@@ -10,6 +10,7 @@ add_library(LimitOrderBookLib)
 target_sources(LimitOrderBookLib PRIVATE
     src/lib/memory/memory_core.cpp
     src/lib/order_core.cpp
+    src/lib/order_book_core.cpp
     src/lib/order_book.cpp
     src/lib/matching_core.cpp
     src/lib/matching_engine.cpp

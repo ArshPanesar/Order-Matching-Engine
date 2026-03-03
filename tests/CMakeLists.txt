@@ -13,6 +13,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(RunTests
     memory_core_test.cpp
     order_core_test.cpp
+    order_book_core_test.cpp
     order_book_test.cpp
     matching_core_test.cpp
     matching_engine_test.cpp
