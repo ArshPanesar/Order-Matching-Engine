@@ -163,3 +163,59 @@ void OrderTable::ComputeAvgAndMaxDistances(float& avg_distance, size_t& max_dist
 }
 
 #endif //LOB_DEBUG
+
+
+
+// 
+// OrderNodePool Impl
+// 
+
+OrderNodePool::OrderNodePool(MemoryAllocator& mem_allocator, const size_t& _capacity) : 
+    allocator(mem_allocator),
+    block_pool(nullptr),
+    capacity(_capacity),
+    head(nullptr) {
+
+    // Allocate Pool
+    block_pool = (Block*)allocator.Allocate(sizeof(Block) * capacity, alignof(Block));
+
+    // Initialize Pool
+    // Last Block of the Array
+    block_pool[capacity - 1].next = nullptr;
+    // Link Up the rest of the Blocks
+    for (int64_t i = capacity - 2; i >= 0; --i) {
+        block_pool[i].next = &block_pool[i + 1];
+    }
+
+    // Initialize Free List
+    head = &block_pool[0];
+}
+
+OrderNodePool::~OrderNodePool() {
+    // Free Pool and Stack
+    allocator.Free(block_pool);
+}
+
+OrderNode* OrderNodePool::Acquire() {
+    assert(head != nullptr && "OrderNodePool ran out of Memory!");
+    
+    // Release Head Block and Move Forward
+    Block* block = head;
+    head = head->next;
+
+    return &(block->order_node);
+}
+
+void OrderNodePool::Release(OrderNode* order_node) {
+    // Get Pointer to this OrderNode's Block
+    uintptr_t node_addr = reinterpret_cast<uintptr_t>(order_node);
+    uintptr_t base_addr = reinterpret_cast<uintptr_t>(block_pool);
+    assert(node_addr >= base_addr && node_addr <= (base_addr + sizeof(Block) * capacity) && "OrderNodePool: Tried to release an invalid OrderNode");
+
+    // Prepend Free Block
+    Block* released_block = reinterpret_cast<Block*>(reinterpret_cast<char*>(node_addr) - offsetof(Block, order_node));
+    
+    Block* next = head;
+    head = released_block;
+    head->next = next;
+}

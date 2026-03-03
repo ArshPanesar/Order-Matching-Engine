@@ -187,3 +187,75 @@ TEST(OrderTableTest, StressTest) {
             EXPECT_NE(table.Find(i), nullptr);
     }
 }
+
+TEST(OrderNodePoolTest, SingleAcquire) {
+    
+    MemoryAllocator memory_allocator(1 << 12);
+    OrderNodePool pool(memory_allocator, 8);
+
+    OrderNode* node = pool.Acquire();
+
+    EXPECT_NE(node, nullptr);
+}
+
+TEST(OrderNodePoolTest, PoolExhaustion) {
+    
+    MemoryAllocator memory_allocator(1 << 12);
+    OrderNodePool pool(memory_allocator, 2);
+
+    pool.Acquire();
+    pool.Acquire();
+
+    EXPECT_DEATH(pool.Acquire(), ".*");
+}
+
+TEST(OrderNodePoolTest, ReleaseReuse) {
+    
+    MemoryAllocator memory_allocator(1 << 12);
+    OrderNodePool pool(memory_allocator, 2);
+
+    OrderNode* n1 = pool.Acquire();
+    OrderNode* n2 = pool.Acquire();
+
+    pool.Release(n1);
+
+    OrderNode* n3 = pool.Acquire();
+
+    EXPECT_EQ(n3, n1);
+}
+
+TEST(OrderNodePoolTest, FreeListBehavior) {
+    
+    MemoryAllocator memory_allocator(1 << 12);
+    OrderNodePool pool(memory_allocator, 3);
+
+    OrderNode* n1 = pool.Acquire();
+    OrderNode* n2 = pool.Acquire();
+    OrderNode* n3 = pool.Acquire();
+
+    pool.Release(n1);
+    pool.Release(n2);
+
+    OrderNode* n4 = pool.Acquire();
+    OrderNode* n5 = pool.Acquire();
+
+    EXPECT_EQ(n4, n2);
+    EXPECT_EQ(n5, n1);
+}
+
+TEST(OrderNodePoolTest, StressTest) {
+    MemoryAllocator memory_allocator(1 << 14);
+
+    const size_t capacity = 256;
+    OrderNodePool pool(memory_allocator, capacity);
+
+    for (int cycle = 0; cycle < 100; ++cycle) {
+        std::vector<OrderNode*> nodes;
+
+        for (size_t i = 0; i < capacity; ++i)
+            nodes.push_back(pool.Acquire());
+
+        for (OrderNode* n : nodes)
+            pool.Release(n);
+    }
+}

@@ -73,3 +73,29 @@ public:
     
 #endif //LOB_DEBUG
 };
+
+// Fixed-Size Pool Allocator for OrderNodes
+class OrderNodePool {
+private:
+    struct Block {
+        OrderNode order_node{};
+        Block* next = nullptr;
+    };
+
+    MemoryAllocator& allocator;
+
+    Block* block_pool;
+    size_t capacity;
+
+    Block* head;
+
+
+public:
+    OrderNodePool(MemoryAllocator& mem_allocator, const size_t& _capacity = (1 << 12));
+    ~OrderNodePool();
+
+    // Get an OrderNode from this Pool
+    OrderNode* Acquire();
+    // Release OrderNode back to this Pool
+    void Release(OrderNode* order_node);
+};
