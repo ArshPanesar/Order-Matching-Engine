@@ -99,3 +99,31 @@ public:
     // Release OrderNode back to this Pool
     void Release(OrderNode* order_node);
 };
+
+
+// Bitset for finding Best Bid/Ask
+class PriceLevelBitset {
+private: 
+    using Bit64 = uint64_t;
+
+    // 64 Bits per Word
+    Bit64* words;
+    size_t num_words;
+    size_t num_price_levels;
+    
+
+    MemoryAllocator& allocator;
+public:
+    PriceLevelBitset(MemoryAllocator& mem_allocator, const size_t& _num_price_levels);
+    ~PriceLevelBitset();
+
+    // Set a Price Level to be Active
+    void ActivatePriceLevel(size_t price_level_index);
+    // Remove a Price Level
+    void DeactivatePriceLevel(size_t price_level_index);
+
+    // Get Best Bid (Returns SIZE_MAX if not found)
+    size_t GetBestBidPriceLevel() const;
+    // Get Best Ask (Returns SIZE_MAX if not found)
+    size_t GetBestAskPriceLevel() const;
+};

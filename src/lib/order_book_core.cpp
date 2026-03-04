@@ -1,6 +1,7 @@
 #include "order_book_core.h"
 #include <assert.h>
 #include <utility>
+#include <bit>
 
 OrderTable::OrderTable(MemoryAllocator& mem_allocator, size_t _capacity) : 
     table(nullptr),
@@ -219,3 +220,75 @@ void OrderNodePool::Release(OrderNode* order_node) {
     head = released_block;
     head->next = next;
 }
+
+
+// 
+// PriceLevelBitset Impl.
+// 
+
+PriceLevelBitset::PriceLevelBitset(MemoryAllocator& mem_allocator, const size_t& _num_price_levels) : 
+    words(nullptr),
+    num_words(0u),
+    num_price_levels(_num_price_levels),
+    allocator(mem_allocator) {
+    
+    // Compute Size of Bitset (Extra bits will just be padding)
+    num_words = (num_price_levels + 63u) / 64u;
+
+    // Allocate Words
+    words = (Bit64*)allocator.Allocate(sizeof(Bit64) * num_words, alignof(Bit64));
+
+    // Initialize Words to Zero
+    for (size_t i = 0; i < num_words; ++i)
+        words[i] = 0u;
+}
+
+PriceLevelBitset::~PriceLevelBitset() {
+    // Free Bitset Memory
+    allocator.Free(words);
+}
+
+void PriceLevelBitset::ActivatePriceLevel(size_t price_level_index) {
+    assert(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in ActivatePriceLevel()!");
+
+    // Find the Word to be set
+    size_t word_index = price_level_index >> 6;
+
+    // Set the Bit
+    size_t bit_position = price_level_index & 63;
+    words[word_index] |= (1ULL << bit_position);
+}
+
+void PriceLevelBitset::DeactivatePriceLevel(size_t price_level_index) {
+    assert(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in DeactivatePriceLevel()!");
+
+    // Find the Word to be set
+    size_t word_index = price_level_index >> 6;
+
+    // Reset the Bit
+    size_t bit_position = price_level_index & 63;
+    words[word_index] &= ~(1ULL << bit_position);
+}
+
+size_t PriceLevelBitset::GetBestBidPriceLevel() const {
+    for (int64_t i = num_words - 1; i >= 0; --i) {
+        Bit64 word = words[i];
+        if (word != 0) {
+            size_t word_position = 63 - std::countl_zero(word);
+            return ((i << 6) + word_position);
+        }
+    }
+    return SIZE_MAX;
+}
+
+size_t PriceLevelBitset::GetBestAskPriceLevel() const {
+    for (size_t i = 0; i < num_words; ++i) {
+        Bit64 word = words[i];
+        if (word != 0) {
+            size_t word_position = std::countr_zero(word);
+            return ((i << 6) + word_position);
+        }
+    }
+    return SIZE_MAX;
+}
+

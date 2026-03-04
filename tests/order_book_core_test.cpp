@@ -259,3 +259,89 @@ TEST(OrderNodePoolTest, StressTest) {
             pool.Release(n);
     }
 }
+
+// 
+// PriceLevelBitset Tests
+// 
+
+
+TEST(PriceLevelBitsetTest, EmptyBitset) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), SIZE_MAX);
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), SIZE_MAX);
+}
+
+TEST(PriceLevelBitsetTest, SinglePriceLevelActivate) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    bitset.ActivatePriceLevel(122);
+
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), 122);
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), 122);
+}
+
+TEST(PriceLevelBitsetTest, MultiplePriceLevelActivate) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    bitset.ActivatePriceLevel(10);
+    bitset.ActivatePriceLevel(200);
+    bitset.ActivatePriceLevel(511);
+
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), 10);
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), 511);
+}
+
+TEST(PriceLevelBitsetTest, ActivateAndDeactivatePriceLevels) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    bitset.ActivatePriceLevel(50);
+    bitset.ActivatePriceLevel(100);
+
+    bitset.DeactivatePriceLevel(100);
+
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), 50);
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), 50);
+
+    bitset.DeactivatePriceLevel(50);
+
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), SIZE_MAX);
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), SIZE_MAX);
+}
+
+TEST(PriceLevelBitsetTest, BoundsCheck) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    bitset.ActivatePriceLevel(0);
+    bitset.ActivatePriceLevel(511);
+
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), 0);
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), 511);
+}
+
+TEST(PriceLevelBitsetTest, StressTest) {
+
+    MemoryAllocator allocator(1 << 14);
+    PriceLevelBitset bitset(allocator, 512);
+
+    std::set<size_t> price_level_set;
+
+    for (size_t i = 0; i < 100; ++i) {
+        size_t level = rand() % 512;
+        bitset.ActivatePriceLevel(level);
+        price_level_set.insert(level);
+    }
+
+    EXPECT_EQ(bitset.GetBestAskPriceLevel(), *price_level_set.begin());
+    EXPECT_EQ(bitset.GetBestBidPriceLevel(), *price_level_set.rbegin());
+}
