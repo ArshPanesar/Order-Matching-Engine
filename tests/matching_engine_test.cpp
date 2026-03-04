@@ -11,7 +11,8 @@
 TEST(MatchingEngineLimitOrdersTest, RestingOrderOnly) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order o1{1, 100, 100, 10, 10};
     OrderEvent event_1 = MakeOrderEvent(o1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::LIMIT);
@@ -24,7 +25,8 @@ TEST(MatchingEngineLimitOrdersTest, RestingOrderOnly) {
 TEST(MatchingEngineLimitOrdersTest, SingleCrossingTrade) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Resting sell order
     Order sell{1, 100, 105, 5, 5};
@@ -47,7 +49,8 @@ TEST(MatchingEngineLimitOrdersTest, SingleCrossingTrade) {
 TEST(MatchingEngineLimitOrdersTest, PartialFillRestingOrder) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order sell{1, 100, 105, 10, 10};
     OrderEvent event_1 = MakeOrderEvent(sell, eOrderEventType::NEW, eOrderSide::ASK, eOrderType::LIMIT);
@@ -61,16 +64,17 @@ TEST(MatchingEngineLimitOrdersTest, PartialFillRestingOrder) {
     EXPECT_EQ(trade_sink.trade_event_list[0].filled_quantity, 5);
 
     // Resting sell should now have 5 remaining
-    const Order* remaining_sell = engine.GetOrderBook()->GetBestAsk();
+    const OrderNode* remaining_sell = engine.GetOrderBook()->GetBestAsk();
     ASSERT_NE(remaining_sell, nullptr);
-    EXPECT_EQ(remaining_sell->remaining_quantity, 5);
+    EXPECT_EQ(remaining_sell->current_quantity, 5);
 }
 
 // Testing Multiple Orders Filled: FIFO Level
 TEST(MatchingEngineLimitOrdersTest, MultipleFillsFIFO) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Two resting sell orders at same price
     Order s1{1, 100, 105, 5, 5};
@@ -96,7 +100,8 @@ TEST(MatchingEngineLimitOrdersTest, MultipleFillsFIFO) {
 TEST(MatchingEngineLimitOrdersTest, MultiplePriceLevels) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 100, 105, 5, 5};
     Order s2{2, 101, 106, 5, 5};
@@ -143,7 +148,8 @@ OrderEvent MakeLimitOrder(OrderID id, eOrderSide side, OrderPrice price, OrderQu
 TEST(MatchingEngineLimitOrdersTest, LongRunningTest) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     OrderTimestamp current_timestamp = 1;
 
@@ -248,7 +254,8 @@ TEST(MatchingEngineLimitOrdersTest, LongRunningTest) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderOnEmptyBook) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 0, 5, 5};
     OrderEvent event_1 = MakeOrderEvent(s1, eOrderEventType::NEW, eOrderSide::BID, eOrderType::MARKET);
@@ -265,7 +272,8 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderOnEmptyBook) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderFullyFilled) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 50, 50};
@@ -291,7 +299,8 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderFullyFilled) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderPartiallyFilled) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 100, 100};
@@ -311,14 +320,15 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderPartiallyFilled) {
     EXPECT_EQ(trade_sink.trade_event_list[0].filled_quantity, 40);
 
     EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
-    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 60);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->current_quantity, 60);
 }
 
 // Market Order at Multiple Price Levels
 TEST(MatchingEngineMarketOrdersTest, MarketOrderMultiplePriceLevels) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 50, 50};
@@ -351,14 +361,15 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderMultiplePriceLevels) {
     EXPECT_EQ(trade_sink.trade_event_list[2].filled_quantity, 10);
     
     EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 102);
-    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 30);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->current_quantity, 30);
 }
 
 // Market Order exhausts Liquidity
 TEST(MatchingEngineMarketOrdersTest, MarketOrderExhaustsLiquidity) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 50, 50};
@@ -391,7 +402,8 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderExhaustsLiquidity) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderSell) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 99, 40, 40};
@@ -418,14 +430,15 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderSell) {
     EXPECT_EQ(trade_sink.trade_event_list[1].filled_quantity, 30);
     
     EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->price, 98);
-    EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->remaining_quantity, 30);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestBid()->current_quantity, 30);
 }
 
 // Market Order must Respect FIFO
 TEST(MatchingEngineMarketOrdersTest, MarketOrderFIFO) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 30, 30};
@@ -452,14 +465,15 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderFIFO) {
     EXPECT_EQ(trade_sink.trade_event_list[1].filled_quantity, 10);
     
     EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
-    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 10);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->current_quantity, 10);
 }
 
 // Market Order exactly filled by Multiple Levels
 TEST(MatchingEngineMarketOrdersTest, MarketOrderExactFill) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 100, 50, 50};
@@ -492,7 +506,8 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderExactFill) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderIgnoreSameSide) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
     Order s1{1, 1, 99, 50, 50};
@@ -519,7 +534,8 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderIgnoreSameSide) {
 TEST(MatchingEngineMarketOrdersTest, MultipleMarketOrders) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 100, 100, 100};
     
@@ -547,14 +563,15 @@ TEST(MatchingEngineMarketOrdersTest, MultipleMarketOrders) {
     EXPECT_EQ(trade_sink.trade_event_list[1].filled_quantity, 50);
     
     EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->price, 100);
-    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->remaining_quantity, 20);
+    EXPECT_EQ(engine.GetOrderBook()->GetBestAsk()->current_quantity, 20);
 }
 
 // Infinite Loop Test (Stuck Pointer)
 TEST(MatchingEngineMarketOrdersTest, NoInfiniteLoop) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink);
+    MemoryAllocator allocator(1 << 17);
+    MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 100, 10, 10};
     

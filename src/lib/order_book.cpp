@@ -1,101 +1,170 @@
 #include "order_book.h"
+#include <cassert>
+#include <iostream>
 
-Order *OrderBook::AccessBestBid() {
-    // Best Bid will be at the Highest Price Level
-    if (!bids_table.empty()) {
-        // Last Key of Table and First Order in FIFO Queue (Time Priority) is the Best Bid
-        auto& fifo_queue = bids_table.rbegin()->second;
-        return &fifo_queue.front();
-    }
-
-    return nullptr;
+OrderNode* OrderBook::AccessBestBid() {
+    return const_cast<OrderNode*>(GetBestBid());
 }
 
-Order *OrderBook::AccessBestAsk() {
-    // Best Ask will be at the Lowest Price Level
-    if (!asks_table.empty()) {
-        // First Key of Table and First Order in FIFO Queue (Time Priority) is the Best Ask
-        auto& fifo_queue = asks_table.begin()->second;
-        return &fifo_queue.front();
-    }
-
-    return nullptr;
+OrderNode* OrderBook::AccessBestAsk() {
+    return const_cast<OrderNode*>(GetBestAsk());
 }
 
+OrderBook::OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders) :
+    allocator(mem_allocator),
+    order_table(mem_allocator, _max_active_orders),
+    bids_price_levels(nullptr),
+    asks_price_levels(nullptr),
+    bids_bitset(mem_allocator, _max_price - _min_price + 1),
+    asks_bitset(mem_allocator, _max_price - _min_price + 1),
+    order_node_pool(mem_allocator, _max_active_orders),
+    min_price(_min_price),
+    max_price(_max_price),
+    num_price_levels(0u),
+    num_active_orders(0u),
+    max_active_orders(_max_active_orders) {
+    
+    // Allocate Arrays for Bids and Asks and Initialize them
+    num_price_levels = max_price - min_price + 1;
+    
+    bids_price_levels = (PriceLevel*)allocator.Allocate(sizeof(PriceLevel) *  num_price_levels, alignof(PriceLevel));
+    for (size_t i = 0; i < num_price_levels; ++i) {
+        bids_price_levels[i].price = min_price + i;
+        bids_price_levels[i].head = nullptr;
+        bids_price_levels[i].tail = nullptr;
+    }
+
+    asks_price_levels = (PriceLevel*)allocator.Allocate(sizeof(PriceLevel) *  num_price_levels, alignof(PriceLevel));
+    for (size_t i = 0; i < num_price_levels; ++i) {
+        asks_price_levels[i].price = min_price + i;
+        asks_price_levels[i].head = nullptr;
+        asks_price_levels[i].tail = nullptr;
+    }
+}
+
+OrderBook::~OrderBook() {
+    // Free Price Level Arrays
+    allocator.Free(asks_price_levels);
+    allocator.Free(bids_price_levels);
+}
 
 void OrderBook::AddOrder(const Order &new_order, const eOrderSide side) {
-    // Determine Side Table
-    auto& price_levels_table = (side == eOrderSide::BID) ? bids_table : asks_table;
+    assert(new_order.price >= min_price);
+    assert(new_order.price <= max_price);
 
-    // Add new order to back of queue
-    // This also creates a new Price Level if it didn't exist before
-    price_levels_table[new_order.price].push_back(new_order);
-}
+    // Determine Side
+    auto* side_price_levels = (side == eOrderSide::BID) ? bids_price_levels : asks_price_levels;
+    auto& side_bitset = (side == eOrderSide::BID) ? bids_bitset : asks_bitset;
 
-void OrderBook::RemoveOrder(const OrderID& old_order_id, const eOrderSide side) {
-    // Determine Side Table
-    auto& price_levels_table = (side == eOrderSide::BID) ? bids_table : asks_table;
+    // Create an Order Node 
+    OrderNode* new_order_node = order_node_pool.Acquire();
+    new_order_node->id = new_order.id;
+    new_order_node->price = new_order.price;
+    new_order_node->current_quantity = new_order.remaining_quantity;
+    new_order_node->side = side;
+    new_order_node->next = nullptr;
+    new_order_node->prev = nullptr;
+    
+    // Add Order Node to Table
+    order_table.Insert(new_order.id, new_order_node);
 
-    // Search through the Entire Table (TODO: Replace this by a Faster Lookup)
-    for (auto& itr : price_levels_table) {
-        // Search through FIFO Queue
-        auto& fifo_queue = itr.second;
-        for (auto q_itr = fifo_queue.begin(); q_itr != fifo_queue.end(); ++q_itr) {
-            if (q_itr->id == old_order_id) {
-                fifo_queue.erase(q_itr);
-                break;
-            }
-        }
+    // Find Price Level Index for this Order
+    size_t price_level_index = new_order.price - min_price;
 
-        // Remove Price Level if Queue is Empty
-        if (fifo_queue.empty()) {
-            price_levels_table.erase(itr.first); // Order Price
-            break;
-        }
+    // Place Order Node in Linked List
+    auto& price_level = side_price_levels[price_level_index];
+    
+    if (price_level.head == nullptr) {
+        // Construct the Price Level
+        price_level.head = new_order_node;
+        price_level.tail = new_order_node;
+
+        side_bitset.ActivatePriceLevel(price_level_index);
+    } else {
+        // Place Order Node in already active Price Level
+        // Append as Tail
+        OrderNode* prev = price_level.tail;
+        price_level.tail = new_order_node;
+
+        price_level.tail->prev = prev;
+        prev->next = new_order_node;
     }
+
+    ++num_active_orders;
 }
 
-const Order* OrderBook::GetBestBid() const {
+void OrderBook::RemoveOrder(const OrderID& old_order_id) {
+    
+    // Access the Order Node
+    OrderNode* old_order_node = order_table.Find(old_order_id);
+    if (!old_order_node)
+        return;
+
+    // Determine Side
+    auto side = old_order_node->side;
+    auto* side_price_levels = (side == eOrderSide::BID) ? bids_price_levels : asks_price_levels;
+    auto& side_bitset = (side == eOrderSide::BID) ? bids_bitset : asks_bitset;
+
+    // Remove Order Node from Table
+    order_table.Remove(old_order_id);
+
+    // Find Price Level Index for this Order
+    size_t price_level_index = old_order_node->price - min_price;
+    auto& price_level = side_price_levels[price_level_index];
+    
+    // Remove Order Node from Price Level
+    //
+    // Check if Single Order in this Price Level
+    if (price_level.head == old_order_node && price_level.tail == old_order_node) {
+        price_level.head = nullptr;
+        price_level.tail = nullptr;
+      
+        side_bitset.DeactivatePriceLevel(price_level_index);
+    } else if (price_level.head == old_order_node) {
+        price_level.head = old_order_node->next;
+        if (price_level.head)
+            price_level.head->prev = nullptr; // New Head
+    } else if (price_level.tail == old_order_node) {
+        price_level.tail = old_order_node->prev;
+        if (price_level.tail)
+            price_level.tail->next = nullptr; // New Tail
+    } else {
+        // Node is somewhere in the middle of the list
+        OrderNode* prev_node = old_order_node->prev;
+        OrderNode* next_node = old_order_node->next;
+
+        prev_node->next = next_node;
+        next_node->prev = prev_node;
+    }
+
+    // Reset Pointers for Safety
+    old_order_node->next = nullptr;
+    old_order_node->prev = nullptr;
+
+    // Release Order Node back to the Pool
+    order_node_pool.Release(old_order_node);
+
+    --num_active_orders;
+}
+
+const OrderNode* OrderBook::GetBestBid() const {
     // Best Bid will be at the Highest Price Level
-    if (!bids_table.empty()) {
-        // Last Key of Table and First Order in FIFO Queue (Time Priority) is the Best Bid
-        auto& fifo_queue = bids_table.rbegin()->second;
-        return &fifo_queue.front();
-    }
-
+    size_t price_level_index = bids_bitset.GetBestBidPriceLevel();
+    if (price_level_index != SIZE_MAX)
+        return bids_price_levels[price_level_index].head;
+    
     return nullptr;
 }
 
-const Order* OrderBook::GetBestAsk() const {
+const OrderNode* OrderBook::GetBestAsk() const {
     // Best Ask will be at the Lowest Price Level
-    if (!asks_table.empty()) {
-        // First Key of Table and First Order in FIFO Queue (Time Priority) is the Best Ask
-        auto& fifo_queue = asks_table.begin()->second;
-        return &fifo_queue.front();
-    }
-
+    size_t price_level_index = asks_bitset.GetBestAskPriceLevel();
+    if (price_level_index != SIZE_MAX)
+        return asks_price_levels[price_level_index].head;
+    
     return nullptr;
 }
 
-const Order* OrderBook::GetOrderByID(const OrderID& order_id) const {
-    // Search on Both Sides
-    eOrderSide side = eOrderSide::BID;
-    for (int s = 0; s < 2; ++s) {
-
-        auto& price_levels_table = (side == eOrderSide::BID) ? bids_table : asks_table;
-
-        // Search through the Entire Table (TODO: Replace this by a Faster Lookup)
-        for (auto& itr : price_levels_table) {
-            // Search through FIFO Queue
-            auto& fifo_queue = itr.second;
-            for (size_t i = 0; i < fifo_queue.size(); ++i) {
-                if (fifo_queue[i].id == order_id)
-                    return &fifo_queue[i];
-            }
-        }
-
-        side = eOrderSide::ASK;
-    }
-
-    return nullptr;
+const OrderNode* OrderBook::GetOrderByID(const OrderID& order_id) const {
+    return order_table.Find(order_id);
 }

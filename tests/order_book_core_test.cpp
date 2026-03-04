@@ -1,5 +1,3 @@
-#define LOB_DEBUG
-
 #include "order_book_core.h"
 #include <gtest/gtest.h>
 
@@ -7,6 +5,7 @@
 // OrderTable Tests
 //
 void PrintOrderTableMetrics(OrderTable& table) {
+#ifdef LOB_DEBUG
     std::cout << "OrderTable Metrics:\n";
     std::cout << "Items: " << table.GetSize() << "\n";
     std::cout << "Load Factor: " << table.ComputeLoadFactor() << "\n";
@@ -19,13 +18,14 @@ void PrintOrderTableMetrics(OrderTable& table) {
     std::cout << "Cluster Maximum Distance: " << max_dist << "\n";
     std::cout << "Cluster Average Distance: " << avg_dist << "\n";
     std::cout << std::endl;
+#endif
 }
 
 TEST(OrderTableTest, InsertAndFindSingle) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator);
 
-    OrderNode node{42, 42, nullptr, nullptr};
+    OrderNode node{10, 42, 42, eOrderSide::ASK, nullptr, nullptr};
     table.Insert(1, &node);
 
     auto* found = table.Find(1);
@@ -37,7 +37,7 @@ TEST(OrderTableTest, FindNonExistantID) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator);
 
-    OrderNode node{42, 42, nullptr, nullptr};
+    OrderNode node{10, 42, 42, eOrderSide::ASK, nullptr, nullptr};
     table.Insert(10, &node);
     table.Insert(15, &node);
     table.Insert(20, &node);
@@ -59,9 +59,9 @@ TEST(OrderTableTest, MultipleInserts) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator);
 
-    OrderNode node_1{10, 10, nullptr, nullptr};
-    OrderNode node_2{20, 20, nullptr, nullptr};
-    OrderNode node_3{30, 30, nullptr, nullptr};
+    OrderNode node_1{10, 10, 10, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_2{11, 20, 20, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_3{12, 30, 30, eOrderSide::ASK, nullptr, nullptr};
     
     table.Insert(1, &node_1);
     table.Insert(2, &node_2);
@@ -76,9 +76,9 @@ TEST(OrderTableTest, HandlesCollisions) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator, 4); // Smaller Size to allow Collisions
 
-    OrderNode node_1{10, 10, nullptr, nullptr};
-    OrderNode node_2{20, 20, nullptr, nullptr};
-    OrderNode node_3{30, 30, nullptr, nullptr};
+    OrderNode node_1{10, 10, 10, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_2{11, 20, 20, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_3{12, 30, 30, eOrderSide::ASK, nullptr, nullptr};
     
     table.Insert(1, &node_1);
     table.Insert(2, &node_2);
@@ -93,9 +93,9 @@ TEST(OrderTableTest, RemoveExistingElement) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator, 4); // Smaller Size to allow Collisions
 
-    OrderNode node_1{10, 10, nullptr, nullptr};
-    OrderNode node_2{20, 20, nullptr, nullptr};
-    OrderNode node_3{30, 30, nullptr, nullptr};
+    OrderNode node_1{10, 10, 10, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_2{11, 20, 20, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_3{12, 30, 30, eOrderSide::ASK, nullptr, nullptr};
     
     table.Insert(1, &node_1);
     table.Insert(2, &node_2);
@@ -112,9 +112,9 @@ TEST(OrderTableTest, RemoveMultipleElements) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator, 4); // Smaller Size to allow Collisions
 
-    OrderNode node_1{10, 10, nullptr, nullptr};
-    OrderNode node_2{20, 20, nullptr, nullptr};
-    OrderNode node_3{30, 30, nullptr, nullptr};
+    OrderNode node_1{11, 10, 10, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_2{12, 20, 20, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_3{13, 30, 30, eOrderSide::ASK, nullptr, nullptr};
     
     table.Insert(1, &node_1);
     table.Insert(2, &node_2);
@@ -133,20 +133,21 @@ TEST(OrderTableTest, LoadFactorCorrect) {
     MemoryAllocator memory_allocator(1 << 17);
     OrderTable table(memory_allocator, 8);
 
-    OrderNode node_1{10, 10, nullptr, nullptr};
-    OrderNode node_2{20, 20, nullptr, nullptr};
-    OrderNode node_3{30, 30, nullptr, nullptr};
-    OrderNode node_4{30, 30, nullptr, nullptr};
+    OrderNode node_1{10, 10, 10, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_2{11, 20, 20, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_3{12, 30, 30, eOrderSide::ASK, nullptr, nullptr};
+    OrderNode node_4{13, 30, 30, eOrderSide::ASK, nullptr, nullptr};
 
     table.Insert(1, &node_1);
     table.Insert(2, &node_2);
-
+#ifdef LOB_DEBUG
     EXPECT_DOUBLE_EQ(table.ComputeLoadFactor(), 0.25);
-    
+#endif
     table.Insert(3, &node_3);
     table.Insert(4, &node_4);
-
+#ifdef LOB_DEBUG
     EXPECT_DOUBLE_EQ(table.ComputeLoadFactor(), 0.5);
+#endif
 }
 
 TEST(OrderTableTest, StressTest) {
@@ -163,10 +164,10 @@ TEST(OrderTableTest, StressTest) {
         nodes[i].price = i;
         table.Insert(i, &nodes[i]);
     }
-
+#ifdef LOB_DEBUG
     EXPECT_DOUBLE_EQ(table.ComputeLoadFactor(), 0.5);
     PrintOrderTableMetrics(table);
-
+#endif //LOB_DEBUG
     // Verify that all Elements were Inserted Correctly
     for (size_t i = 0; i < N; ++i) {
         ASSERT_NE(table.Find(i), nullptr);
@@ -176,9 +177,9 @@ TEST(OrderTableTest, StressTest) {
     for (size_t i = 0; i < N; i += 2) {
         table.Remove(i);
     }
-
+#ifdef LOB_DEBUG
     EXPECT_DOUBLE_EQ(table.ComputeLoadFactor(), 0.25);
-
+#endif// LOB_DEBUG
     // Verify Odd Elements still Exist
     for (size_t i = 0; i < N; ++i) {
         if (i % 2 == 0)

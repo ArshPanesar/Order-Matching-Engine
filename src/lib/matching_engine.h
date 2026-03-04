@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "matching_core.h"
 #include "order_book.h"
 
@@ -23,11 +24,12 @@ private:
         return avail_trade_id++;
     }
 
-    TradeEvent GenerateTradeEvent(const Order* aggressive_order, const Order* passive_order, const eOrderSide aggressive_side, const OrderPrice& executed_price, const OrderQuantity& trade_quantity) {
+    TradeEvent GenerateTradeEvent(const OrderNode* aggressive_order, const OrderNode* passive_order, const eOrderSide aggressive_side, 
+                const OrderPrice& executed_price, const OrderQuantity& trade_quantity, const OrderTimestamp& timestamp) {
         TradeEvent new_trade_event;
         new_trade_event.trade_id = GenerateTradeID();
 
-        new_trade_event.timestamp = aggressive_order->timestamp; // TODO: Should use actual time as timestamp
+        new_trade_event.timestamp = timestamp;
         
         if (aggressive_side == eOrderSide::BID) {
             new_trade_event.bid_order_id = aggressive_order->id;
@@ -50,13 +52,13 @@ private:
         eOrderType order_type = order_event.type;
 
         // Lambdas as easy utility
-        auto GetOppositeSideBestOrder = [&]() -> Order* {
+        auto GetOppositeSideBestOrder = [&]() -> OrderNode* {
             return (order_side == eOrderSide::BID) ? order_book.AccessBestAsk() : order_book.AccessBestBid();
         };
         auto GetOppositeSide = [&]() -> eOrderSide {
             return (order_side == eOrderSide::BID) ? eOrderSide::ASK : eOrderSide::BID;
         };
-        auto IsBookCrossed = [&](const Order* best_opp_side_order) -> bool {
+        auto IsBookCrossed = [&](const OrderNode* best_opp_side_order) -> bool {
             // Order crosses the Book if:
             // 1. Its a Bid and its Price is Higher than Best Ask
             // OR
@@ -68,7 +70,7 @@ private:
             // New Limit Order
             //
             // Check if Order crosses the Book
-            Order* current_best_opp = GetOppositeSideBestOrder();
+            OrderNode* current_best_opp = GetOppositeSideBestOrder();
             if (current_best_opp == nullptr) {
                 // Book Empty on Opposite Side, New Order must rest!
                 order_book.AddOrder(new_order, order_side);
@@ -77,30 +79,37 @@ private:
 
             if (IsBookCrossed(current_best_opp)) {
                 // Crossed the Book
-                while (current_best_opp != nullptr && IsBookCrossed(current_best_opp) && new_order.remaining_quantity > 0) {
+                // Dummy OrderNode for Crossing Logic
+                OrderNode new_order_node{};
+                new_order_node.id = new_order.id;
+                new_order_node.price = new_order.price;
+                new_order_node.current_quantity = new_order.initial_quantity;
+
+                while (current_best_opp != nullptr && IsBookCrossed(current_best_opp) && new_order_node.current_quantity > 0) {
                     // Execute Trade
-                    OrderQuantity trade_quantity = std::min(new_order.remaining_quantity, current_best_opp->remaining_quantity);
-                    new_order.remaining_quantity -= trade_quantity;
-                    current_best_opp->remaining_quantity -= trade_quantity;
+                    OrderQuantity trade_quantity = std::min(new_order_node.current_quantity, current_best_opp->current_quantity);
+                    new_order_node.current_quantity -= trade_quantity;
+                    current_best_opp->current_quantity -= trade_quantity;
                     
                     // Generate Trade Event
-                    TradeEvent new_trade_event = GenerateTradeEvent(&new_order, current_best_opp, order_side, current_best_opp->price, trade_quantity);
+                    TradeEvent new_trade_event = GenerateTradeEvent(&new_order_node, current_best_opp, order_side, current_best_opp->price, trade_quantity, new_order.timestamp);
                     // Immediately Push to Sink
                     trade_event_sink.Accept(new_trade_event);
 
-                    if (current_best_opp->remaining_quantity == 0) 
-                        order_book.RemoveOrder(current_best_opp->id, GetOppositeSide());  // Resting Order Fully Filled
+                    if (current_best_opp->current_quantity == 0) 
+                        order_book.RemoveOrder(current_best_opp->id);  // Resting Order Fully Filled
 
                     // New Order fully filled
-                    if (new_order.remaining_quantity == 0)
+                    if (new_order_node.current_quantity == 0)
                         break;
                                         
                     // Move to next
                     current_best_opp = GetOppositeSideBestOrder();
                 }
-                
+                new_order.remaining_quantity = new_order_node.current_quantity;
+
                 // Add New Order to the Book if it still has Non-Zero Quantity
-                if (new_order.remaining_quantity > 0) {
+                if (new_order_node.current_quantity > 0) {
                     current_best_opp = GetOppositeSideBestOrder();
                     if (current_best_opp == nullptr || !IsBookCrossed(current_best_opp))
                         order_book.AddOrder(new_order, order_side);
@@ -112,29 +121,34 @@ private:
             }
         } else if (order_type == eOrderType::MARKET) {
             // Check Opposite Side
-            Order* current_best_opp = GetOppositeSideBestOrder();
+            OrderNode* current_best_opp = GetOppositeSideBestOrder();
             if (current_best_opp == nullptr) {
                 // Market Order Rejected
                 return;
             }
 
             // Duplicated Limit Order Matching Loop (slightly changed for Market Order) for Clarity
-            while (current_best_opp != nullptr && new_order.remaining_quantity > 0) {
+            // Dummy OrderNode for Crossing Logic
+            OrderNode new_order_node{};
+            new_order_node.id = new_order.id;
+            new_order_node.price = new_order.price;
+            new_order_node.current_quantity = new_order.initial_quantity;
+            while (current_best_opp != nullptr && new_order_node.current_quantity > 0) {
                 // Execute Trade
-                OrderQuantity trade_quantity = std::min(new_order.remaining_quantity, current_best_opp->remaining_quantity);
-                new_order.remaining_quantity -= trade_quantity;
-                current_best_opp->remaining_quantity -= trade_quantity;
+                OrderQuantity trade_quantity = std::min(new_order_node.current_quantity, current_best_opp->current_quantity);
+                new_order_node.current_quantity -= trade_quantity;
+                current_best_opp->current_quantity -= trade_quantity;
                 
                 // Generate Trade Event
-                TradeEvent new_trade_event = GenerateTradeEvent(&new_order, current_best_opp, order_side, current_best_opp->price, trade_quantity);
+                TradeEvent new_trade_event = GenerateTradeEvent(&new_order_node, current_best_opp, order_side, current_best_opp->price, trade_quantity, new_order.timestamp);
                 // Immediately Push to Sink
                 trade_event_sink.Accept(new_trade_event);
 
-                if (current_best_opp->remaining_quantity == 0) 
-                    order_book.RemoveOrder(current_best_opp->id, GetOppositeSide());  // Resting Order Fully Filled
+                if (current_best_opp->current_quantity == 0) 
+                    order_book.RemoveOrder(current_best_opp->id);  // Resting Order Fully Filled
 
                 // New Order fully filled
-                if (new_order.remaining_quantity == 0)
+                if (new_order_node.current_quantity == 0)
                     break;
                                     
                 // Move to next
@@ -144,25 +158,24 @@ private:
     }
 
     void OnCancelOrderEvent(OrderEvent& order_event) {
-        order_book.RemoveOrder(order_event.order.id, order_event.side);
+        order_book.RemoveOrder(order_event.order.id);
     }
 
     void OnAmendOrderEvent(OrderEvent& order_event) {
-        const Order* amend_order = order_book.GetOrderByID(order_event.order.id);
+        const OrderNode* amend_order = order_book.GetOrderByID(order_event.order.id);
         if (amend_order != nullptr) {
-            // Cannot Amend a Partially Filled Order
-            if (amend_order->initial_quantity == amend_order->remaining_quantity) {
-                // Cancel and Immediately Add the Amended Order as a new Order
-                OnCancelOrderEvent(order_event);
-                OnNewOrderEvent(order_event);
-            }
+            // Cancel and Immediately Add the Amended Order as a new Order
+            OnCancelOrderEvent(order_event);
+            OnNewOrderEvent(order_event);
         }
     }
 
 public:
-    explicit MatchingEngine(OrderEventSink& orders_sink, TradeEventSink& trades_sink) : 
+    explicit MatchingEngine(OrderEventSink& orders_sink, TradeEventSink& trades_sink, MemoryAllocator& mem_allocator, 
+                OrderPrice min_price, OrderPrice max_price, size_t max_active_orders = (1 << 12)) : 
+        order_book(mem_allocator, min_price, max_price, max_active_orders),
         order_event_sink(orders_sink),
-        trade_event_sink(trades_sink) 
+        trade_event_sink(trades_sink)
         {};
     
     ~MatchingEngine() = default;

@@ -1,17 +1,11 @@
 #pragma once
-#include <map>
-#include <queue>
 
+#include "order_book_core.h"
 #include "matching_core.h"
 
 // Declaring MatchingEngine before OrderBook is defined
 template<OrderEventSinkConcept, TradeEventSinkConcept>
 class MatchingEngine;
-
-
-using FIFOContainer = std::deque<Order>;
-using PriceLevelContainer = std::map<OrderPrice, FIFOContainer>;
-
 
 class OrderBook {
 private:
@@ -19,22 +13,41 @@ private:
     template<OrderEventSinkConcept, TradeEventSinkConcept>
     friend class MatchingEngine;
 
-    PriceLevelContainer bids_table;
-    PriceLevelContainer asks_table;
+    MemoryAllocator& allocator;
 
+    OrderTable order_table;
 
-    Order* AccessBestBid();
-    Order* AccessBestAsk();
+    // Flat Arrays for Price Levels
+    PriceLevel* bids_price_levels;
+    PriceLevel* asks_price_levels;
+    
+    // Bitsets for Bids and Asks
+    PriceLevelBitset bids_bitset;
+    PriceLevelBitset asks_bitset;
+
+    // Utility
+    OrderNodePool order_node_pool;
+
+    // Bounded Price Range
+    OrderPrice min_price;
+    OrderPrice max_price;
+    size_t num_price_levels;
+
+    size_t num_active_orders;
+    size_t max_active_orders;
+    
+    OrderNode* AccessBestBid();
+    OrderNode* AccessBestAsk();
 
 public:
-    OrderBook() = default;
-    ~OrderBook() = default;
+    OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders = (1 << 12));
+    ~OrderBook();
 
     void AddOrder(const Order& new_order, const eOrderSide side);
-    void RemoveOrder(const OrderID& old_order_id, const eOrderSide side);
+    void RemoveOrder(const OrderID& old_order_id);
 
-    const Order* GetBestBid() const;
-    const Order* GetBestAsk() const;
+    const OrderNode* GetBestBid() const;
+    const OrderNode* GetBestAsk() const;
 
-    const Order* GetOrderByID(const OrderID& order_id) const;
+    const OrderNode* GetOrderByID(const OrderID& order_id) const;
 };

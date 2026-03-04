@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <queue>
 #include <unordered_set>
 #include <random>
 
@@ -65,6 +66,7 @@ private:
         // Conform to Concept
         OrderEvent ExtractNext() {
             OrderEvent event = order_event_queue.front();
+            order_event_queue.pop();
             return event;
         }
     };
@@ -89,7 +91,7 @@ private:
     MatchingEngine<GeneratorOrderSink, GeneratorTradeSink> matching_engine;
 
 public:
-    explicit OrderEventGenerator(uint64_t seed = 42);
+    explicit OrderEventGenerator(MemoryAllocator& mem_allocator, uint64_t seed = 42, size_t max_live_orders = (1 << 16));
     ~OrderEventGenerator() = default;
 
     // Generate Next Event

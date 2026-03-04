@@ -100,7 +100,7 @@ void OrderTable::Remove(const OrderID& order_id) {
     --size;
 }
 
-OrderNode* OrderTable::Find(const OrderID& order_id) {
+OrderNode* OrderTable::Find(const OrderID& order_id) const {
     size_t index = Hash(order_id) & (capacity - 1);
 
     size_t current_index = index;

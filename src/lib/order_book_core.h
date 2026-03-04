@@ -4,8 +4,10 @@
 
 // Order Information to be stored in FIFO order
 struct OrderNode {
+    OrderID id{};
     OrderPrice price{};
     OrderQuantity current_quantity{};
+    eOrderSide side{};
     OrderNode* next = nullptr;
     OrderNode* prev = nullptr;
 };
@@ -57,7 +59,7 @@ public:
     void Insert(const OrderID& order_id, OrderNode* order_node);
     void Remove(const OrderID& order_id);
     
-    OrderNode* Find(const OrderID& order_id);
+    OrderNode* Find(const OrderID& order_id) const;
 
     const size_t GetSize() const { return size; };
     const size_t GetCapacity() const { return capacity; };

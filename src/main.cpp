@@ -41,12 +41,14 @@ private:
     OrderEventGenerator generator;
 
 public:
-    SyntheticOrderEventSink() = default;
+    SyntheticOrderEventSink(MemoryAllocator& mem_allocator, size_t max_live_orders) : generator(mem_allocator, 42, max_live_orders) {};
     ~SyntheticOrderEventSink() = default;
     
     // Conform to Concept
     OrderEvent ExtractNext() {
-        return generator.Step();
+        OrderEvent order_event = generator.Step();
+        // std::cout << FormatOrderEvent(order_event) << "\n";
+        return order_event;
     }
 };
 //
@@ -75,18 +77,24 @@ public:
     }
 };
 
-int main()
-{
+int main() {
+
+    MemoryAllocator mem_allocator((1u << 30u));
+    
+
+    size_t max_live_orders = (1 << 21);
+
     // Synthetic Data Test
-    SyntheticOrderEventSink synthetic_order_sink;
+    MemoryAllocator generator_mem_allocator((1 << 30));
+    SyntheticOrderEventSink synthetic_order_sink(generator_mem_allocator, max_live_orders);
     SyntheticTradeEventSink synthetic_trade_sink;
     
-    MatchingEngine<SyntheticOrderEventSink, SyntheticTradeEventSink> synthetic_data_engine(synthetic_order_sink, synthetic_trade_sink);
+    MatchingEngine<SyntheticOrderEventSink, SyntheticTradeEventSink> synthetic_data_engine(synthetic_order_sink, synthetic_trade_sink, mem_allocator, 10, 200, max_live_orders);
 
     // Avoiding Infinite Loop
     std::cout << "Starting Order Stream...\n";
 
-    uint64_t max_orders = 200000u;
+    uint64_t max_orders = 3000000u;
     while (max_orders > 0) {
         
         synthetic_data_engine.Run();

@@ -21,21 +21,25 @@ Order CreateOrder(OrderID id, OrderPrice price, OrderQuantity quantity) {
 
 // Adding the First Order
 TEST(OrderBookTest, AddingFirstOrder) {
-    OrderBook book;
+
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
     Order first_order = CreateOrder(1, 200, 300);
 
     book.AddOrder(first_order, eOrderSide::BID);
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
     EXPECT_EQ(best_bid->price, 200u);
-    EXPECT_EQ(best_bid->initial_quantity, 300u);
+    EXPECT_EQ(best_bid->current_quantity, 300u);
 }
 
 // Adding Multiple Orders at the Same Price
 TEST(OrderBookTest, AddingMultipleOrdersSamePrice) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 100, 20);
     Order order_3 = CreateOrder(3, 100, 30);
@@ -45,16 +49,18 @@ TEST(OrderBookTest, AddingMultipleOrdersSamePrice) {
     book.AddOrder(order_3, eOrderSide::BID);
     
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
     EXPECT_EQ(best_bid->price, 100u);
-    EXPECT_EQ(best_bid->initial_quantity, 10u);
+    EXPECT_EQ(best_bid->current_quantity, 10u);
 }
 
 // Adding Multiple Orders at the Different Prices
 TEST(OrderBookTest, AddingMultipleOrdersDiffPrice) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 101, 10);
     Order order_2 = CreateOrder(2, 100, 20);
     Order order_3 = CreateOrder(3, 102, 30);
@@ -66,18 +72,20 @@ TEST(OrderBookTest, AddingMultipleOrdersDiffPrice) {
     book.AddOrder(order_3, eOrderSide::ASK);
     book.AddOrder(order_4, eOrderSide::ASK);
     
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u); // Highest Price in Bids
 
-    const Order* best_ask = book.GetBestAsk();
+    const OrderNode* best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 3u); // Lowest Price in Asks
 }
 
 // Removing an Order
 TEST(OrderBookTest, RemovingOrder) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 100, 20);
     
@@ -85,56 +93,65 @@ TEST(OrderBookTest, RemovingOrder) {
     book.AddOrder(order_1, eOrderSide::BID);
     book.AddOrder(order_2, eOrderSide::BID);
     
-    book.RemoveOrder(order_1.id, eOrderSide::BID);
+    book.RemoveOrder(order_1.id);
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 }
 
 // Removing an Entire Price Level
 TEST(OrderBookTest, RemovingPriceLevel) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
+
     Order order_1 = CreateOrder(1, 100, 10);
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_1.id, eOrderSide::BID);
+    book.RemoveOrder(order_1.id);
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 }
 
 // Removing a Non-Existant Order
 TEST(OrderBookTest, RemovingNonExistantOrder) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 101, 10);
     
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 }
 
 // Empty Book Operations
 TEST(OrderBookTest, EmptyBookOperations) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
 
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
-    const Order* best_ask = book.GetBestAsk();
+    const OrderNode* best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
 
 // Test for Sorting Correctness at Price Level
 TEST(OrderBookTest, PriceLevelSortingCorrectness) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
     Order order_1 = CreateOrder(1, 100, 1);
@@ -155,49 +172,51 @@ TEST(OrderBookTest, PriceLevelSortingCorrectness) {
     book.AddOrder(order_6, eOrderSide::ASK);
     
     // Check Sorting of Best Bid
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3.id, eOrderSide::BID);
+    book.RemoveOrder(order_3.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1.id, eOrderSide::BID);
+    book.RemoveOrder(order_1.id);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
     // Check Sorting of Best Ask
-    const Order* best_ask = book.GetBestAsk();
+    const OrderNode* best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6.id, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
 
-    book.RemoveOrder(order_5.id, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4.id, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
 
 // Test for Sorting Correctness at FIFO Level
 TEST(OrderBookTest, FIFOSortingCorrectness) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
     Order order_1 = CreateOrder(1, 100, 1);
@@ -218,49 +237,51 @@ TEST(OrderBookTest, FIFOSortingCorrectness) {
     book.AddOrder(order_6, eOrderSide::ASK);
     
     // Check Sorting of Best Bid
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1.id, eOrderSide::BID);
+    book.RemoveOrder(order_1.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3.id, eOrderSide::BID);
+    book.RemoveOrder(order_3.id);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
     // Check Sorting of Best Ask
-    const Order* best_ask = book.GetBestAsk();
+    const OrderNode* best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4.id, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
 
-    book.RemoveOrder(order_5.id, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6.id, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
 
 // Test for General Sorting Correctness
 TEST(OrderBookTest, GeneralSortingCorrectness) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
     Order order_1 = CreateOrder(1, 100, 1);
@@ -281,70 +302,76 @@ TEST(OrderBookTest, GeneralSortingCorrectness) {
     book.AddOrder(order_6, eOrderSide::ASK);
     
     // Check Sorting of Best Bid
-    const Order* best_bid = book.GetBestBid();
+    const OrderNode* best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 
-    book.RemoveOrder(order_1.id, eOrderSide::BID);
+    book.RemoveOrder(order_1.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 2u);
 
 
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
     best_bid = book.GetBestBid();
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 3u);
 
-    book.RemoveOrder(order_3.id, eOrderSide::BID);
+    book.RemoveOrder(order_3.id);
     best_bid = book.GetBestBid();
     EXPECT_EQ(best_bid, nullptr);
 
     // Check Sorting of Best Ask
-    const Order* best_ask = book.GetBestAsk();
+    const OrderNode* best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 4u);
 
-    book.RemoveOrder(order_4.id, eOrderSide::ASK);
+    book.RemoveOrder(order_4.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 5u);
 
-    book.RemoveOrder(order_5.id, eOrderSide::ASK);
+    book.RemoveOrder(order_5.id);
     best_ask = book.GetBestAsk();
     ASSERT_NE(best_ask, nullptr);
     EXPECT_EQ(best_ask->id, 6u);
 
-    book.RemoveOrder(order_6.id, eOrderSide::ASK);
+    book.RemoveOrder(order_6.id);
     best_ask = book.GetBestAsk();
     EXPECT_EQ(best_ask, nullptr);
 }
 
 // Search for Existing Order by ID
 TEST(OrderBookTest, SearchExistingOrder) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
+
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 101, 10);
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
 
-    const Order* best_bid = book.GetOrderByID(1);
+    const OrderNode* best_bid = book.GetOrderByID(1);
     ASSERT_NE(best_bid, nullptr);
     EXPECT_EQ(best_bid->id, 1u);
 }
 
 // Search for Non-Existant Order by ID
 TEST(OrderBookTest, SearchNonExistantOrder) {
-    OrderBook book;
+    
+    MemoryAllocator allocator(1 << 17);
+    OrderBook book(allocator, 0, 1000, (1 << 8));
+
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 101, 10);
     
     book.AddOrder(order_1, eOrderSide::BID);
     
-    book.RemoveOrder(order_2.id, eOrderSide::BID);
+    book.RemoveOrder(order_2.id);
 
-    const Order* best_bid = book.GetOrderByID(2);
+    const OrderNode* best_bid = book.GetOrderByID(2);
     EXPECT_EQ(best_bid, nullptr);
 }

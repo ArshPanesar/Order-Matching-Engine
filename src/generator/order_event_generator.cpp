@@ -1,7 +1,7 @@
 #include "order_event_generator.h"
 #include <iostream>
 
-OrderEventGenerator::OrderEventGenerator(uint64_t seed) : 
+OrderEventGenerator::OrderEventGenerator(MemoryAllocator& mem_allocator, uint64_t seed, size_t max_live_orders) : 
     id_gen(0u),
     old_id_upper_limit(16),
     timestamp_ns(0.0f),
@@ -23,7 +23,7 @@ OrderEventGenerator::OrderEventGenerator(uint64_t seed) :
     active_orders_set(),
     order_sink(),
     trade_sink(),
-    matching_engine(order_sink, trade_sink) {
+    matching_engine(order_sink, trade_sink, mem_allocator, 0, 500, max_live_orders) {
 
     // Setup Event Type Weights
     event_type_weights.push_back(0.7f); // NEW
@@ -94,7 +94,7 @@ OrderEvent OrderEventGenerator::Step() {
     // Cluster near Best Prices
     int price_offset = geo_dist(rng);
     price_offset = (new_event.side == eOrderSide::BID) ? -price_offset : price_offset;
-    const Order* best_price_order = (new_event.side == eOrderSide::BID) ? matching_engine.GetOrderBook()->GetBestBid() : matching_engine.GetOrderBook()->GetBestAsk();
+    const OrderNode* best_price_order = (new_event.side == eOrderSide::BID) ? matching_engine.GetOrderBook()->GetBestBid() : matching_engine.GetOrderBook()->GetBestAsk();
     if (best_price_order != nullptr)
         best_price = best_price_order->price;
     new_event.order.price = static_cast<OrderPrice>(best_price + price_offset);
@@ -121,7 +121,8 @@ OrderEvent OrderEventGenerator::Step() {
     // Run Internal Engine
     order_sink.Add(new_event);
     matching_engine.Run();
-    // Remove Executed Orders (Also removes partially filled orders, this is intended)
+
+    // Remove Executed Orders
     // std::cout << trade_sink.trade_event_list.size() << "\n";
     for (TradeEvent& trade_event : trade_sink.trade_event_list) {
         active_orders_set.erase(trade_event.ask_order_id);
