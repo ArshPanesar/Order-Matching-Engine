@@ -43,6 +43,7 @@ add_executable(LimitOrderBookProgram)
 
 target_sources(LimitOrderBookProgram PRIVATE
     src/generator/order_event_generator.cpp
+    src/util/spsc_queue.cpp
     src/main.cpp
 )
 

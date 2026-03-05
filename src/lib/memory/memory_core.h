@@ -4,7 +4,7 @@
 
 // Core Defs
 
-#define CACHE_LINE_SIZE 64u
+#define CACHE_LINE_SIZE 64
 
 inline uintptr_t ComputeAlignedAddress(uintptr_t addr, size_t alignment) noexcept {
     return (addr + (alignment - 1)) & ~(alignment - 1);
