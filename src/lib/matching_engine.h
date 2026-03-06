@@ -42,6 +42,8 @@ private:
         new_trade_event.executed_price = executed_price;
         new_trade_event.filled_quantity = trade_quantity;
 
+        new_trade_event.type = eTradeEventType::NEW; // Always NEW
+
         return new_trade_event;
     }
 
@@ -170,6 +172,14 @@ private:
         }
     }
 
+    void OnStopExecutionEvent(OrderEvent& order_event) {
+        // Signal TradeEvent Sink to stop execution
+        TradeEvent stop_event;
+        stop_event.type = eTradeEventType::STOP_EXECUTION;
+
+        trade_event_sink.Accept(stop_event);
+    }
+
 public:
     explicit MatchingEngine(OrderEventSink& orders_sink, TradeEventSink& trades_sink, MemoryAllocator& mem_allocator, 
                 OrderPrice min_price, OrderPrice max_price, size_t max_active_orders = (1 << 12)) : 
@@ -180,7 +190,9 @@ public:
     
     ~MatchingEngine() = default;
 
-    void Run() {
+    // Step the MatchingEngine to Process an OrderEvent
+    // Returns false if OrderEvent is of STOP_EXECUTION type.
+    bool Run() {
         // Extract Next Event
         OrderEvent order_event = order_event_sink.ExtractNext();
         // Process Event based on Type
@@ -196,7 +208,13 @@ public:
             case eOrderEventType::AMEND:
                 OnAmendOrderEvent(order_event);
                 break;
+            
+            case eOrderEventType::STOP_EXECUTION:
+                OnStopExecutionEvent(order_event);
+                return false;
         }
+
+        return true;
     }
 
     // Getters

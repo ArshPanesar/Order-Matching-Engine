@@ -7,7 +7,8 @@
 enum class eOrderEventType {
     NEW,
     CANCEL,
-    AMEND
+    AMEND,
+    STOP_EXECUTION // Used to signal completion/halting of incoming OrderEvents
 };
 
 struct OrderEvent {
@@ -24,6 +25,11 @@ struct OrderEvent {
 using TradeID = uint64_t;
 using TradeTimestamp = uint64_t;
 
+enum class eTradeEventType {
+    NEW,
+    STOP_EXECUTION // Used to signal completion/halting of incoming TradeEvents
+};
+
 struct TradeEvent {
     TradeID trade_id{};
     TradeTimestamp timestamp{};
@@ -33,6 +39,8 @@ struct TradeEvent {
 
     OrderPrice executed_price{};
     OrderQuantity filled_quantity{};
+
+    eTradeEventType type{};
 };
 
 //

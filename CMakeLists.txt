@@ -36,6 +36,24 @@ target_compile_definitions(LimitOrderBookLib PRIVATE
 )
 
 # 
+# Tools Executable
+# 
+add_executable(ToolsProgram)
+
+target_sources(ToolsProgram PRIVATE
+    src/generator/order_event_generator.cpp
+    src/util/spsc_queue.cpp
+    src/tools.cpp
+)
+
+# Link to LimitOrderBookLib
+target_link_libraries(ToolsProgram PRIVATE LimitOrderBookLib)
+
+target_compile_features(ToolsProgram PRIVATE cxx_std_20)
+
+
+
+# 
 # Main Executable
 # 
 
