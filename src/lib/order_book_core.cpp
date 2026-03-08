@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <utility>
 #include <bit>
+#include <algorithm>
+#include <stdexcept>
 
 OrderTable::OrderTable(MemoryAllocator& mem_allocator, size_t _capacity) : 
     table(nullptr),
@@ -120,9 +122,31 @@ OrderNode* OrderTable::Find(const OrderID& order_id) const {
     return nullptr;
 }
 
+void OrderTable::ComputeMemoryParams(size_t num_of_orders, size_t &req_capacity, size_t &req_bytes, size_t capacity_multiplier) {
+    capacity_multiplier = std::max(capacity_multiplier, 1UL);
+    num_of_orders = std::max(num_of_orders, 1UL);
+    
+    // OrderTable will always need more capacity than number of Orders for best performance
+    size_t needed_capacity{};
+    if (__builtin_mul_overflow(num_of_orders, capacity_multiplier, &needed_capacity))
+        throw std::runtime_error("OrderTable: Overflow occurred when computing required capacity");
+
+    req_capacity = NextPowerOf2(needed_capacity);
+    if (req_capacity < needed_capacity)
+        throw std::runtime_error("OrderTable: Overflow occurred when computing NextPowerOf2 on required capacity");
+
+    // Allocation Required based on Required Capacity
+    size_t needed_bytes{};
+    if (__builtin_mul_overflow(sizeof(Slot), req_capacity, &needed_bytes))
+        throw std::runtime_error("OrderTable: Overflow occurred when computing required bytes");
+
+    req_bytes = needed_bytes;
+}
+
 #ifdef LOB_DEBUG
 
-double OrderTable::ComputeLoadFactor() const {
+double OrderTable::ComputeLoadFactor() const
+{
     return (double)size / (double)capacity;
 }
 
@@ -176,17 +200,17 @@ OrderNodePool::OrderNodePool(MemoryAllocator& mem_allocator, const size_t& _capa
     block_pool(nullptr),
     capacity(_capacity),
     head(nullptr) {
+    assert(capacity >= 2 && "OrderNodePool: Capacity must not be less than 2.");
 
     // Allocate Pool
     block_pool = (Block*)allocator.Allocate(sizeof(Block) * capacity, alignof(Block));
 
     // Initialize Pool
+    // Link Up the Blocks
+    for (size_t i = 0; i < capacity - 1; ++i)
+        block_pool[i].next = &block_pool[i + 1];
     // Last Block of the Array
     block_pool[capacity - 1].next = nullptr;
-    // Link Up the rest of the Blocks
-    for (int64_t i = capacity - 2; i >= 0; --i) {
-        block_pool[i].next = &block_pool[i + 1];
-    }
 
     // Initialize Free List
     head = &block_pool[0];
@@ -221,6 +245,18 @@ void OrderNodePool::Release(OrderNode* order_node) {
     head->next = next;
 }
 
+void OrderNodePool::ComputeMemoryParams(size_t num_of_orders, size_t &req_capacity, size_t &req_bytes) {
+    num_of_orders = std::max(num_of_orders, 1UL);
+    
+    req_capacity = num_of_orders;
+    
+    // Allocation Required based on Required Capacity
+    size_t needed_bytes{};
+    if (__builtin_mul_overflow(sizeof(Block), req_capacity, &needed_bytes))
+        throw std::runtime_error("OrderNodePool: Overflow occurred when computing required bytes");
+
+    req_bytes = needed_bytes;
+}
 
 // 
 // PriceLevelBitset Impl.
@@ -271,10 +307,10 @@ void PriceLevelBitset::DeactivatePriceLevel(size_t price_level_index) {
 }
 
 size_t PriceLevelBitset::GetBestBidPriceLevel() const {
-    for (int64_t i = num_words - 1; i >= 0; --i) {
+    for (size_t i = num_words; i-- > 0;) {
         Bit64 word = words[i];
         if (word != 0) {
-            size_t word_position = 63 - std::countl_zero(word);
+            int word_position = 63 - std::countl_zero(word);
             return ((i << 6) + word_position);
         }
     }
@@ -285,10 +321,20 @@ size_t PriceLevelBitset::GetBestAskPriceLevel() const {
     for (size_t i = 0; i < num_words; ++i) {
         Bit64 word = words[i];
         if (word != 0) {
-            size_t word_position = std::countr_zero(word);
+            int word_position = std::countr_zero(word);
             return ((i << 6) + word_position);
         }
     }
     return SIZE_MAX;
 }
 
+void PriceLevelBitset::ComputeMemoryParams(size_t min_price, size_t max_price, size_t &req_bytes) {
+    size_t req_num_levels = max_price - min_price + 1;
+    size_t req_words = (req_num_levels + 63u) / 64u;
+
+    size_t needed_bytes{};
+    if (__builtin_mul_overflow(sizeof(Bit64), req_words, &needed_bytes))
+        throw std::runtime_error("PriceLevelBitset: Overflow occurred when computing required bytes");
+
+    req_bytes = needed_bytes;
+}

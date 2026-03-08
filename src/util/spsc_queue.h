@@ -9,7 +9,7 @@ private:
     T* buffer;
     size_t capacity;
 
-    static const size_t CACHE_LINE = std::hardware_destructive_interference_size;
+    static const size_t CACHE_LINE = 64u;
 
     // Ensure size_t is Lock Free on this platform
     static_assert(std::atomic<size_t>::is_always_lock_free);

@@ -61,9 +61,10 @@ public:
     
     OrderNode* Find(const OrderID& order_id) const;
 
-    const size_t GetSize() const { return size; };
-    const size_t GetCapacity() const { return capacity; };
+    size_t GetSize() const { return size; };
+    size_t GetCapacity() const { return capacity; };
     
+    static void ComputeMemoryParams(size_t num_of_orders, size_t& req_capacity, size_t& req_bytes, size_t capacity_multiplier = 2);
 
 #ifdef LOB_DEBUG
     double ComputeLoadFactor() const;
@@ -100,6 +101,8 @@ public:
     OrderNode* Acquire();
     // Release OrderNode back to this Pool
     void Release(OrderNode* order_node);
+
+    static void ComputeMemoryParams(size_t num_of_orders, size_t& req_capacity, size_t& req_bytes);
 };
 
 
@@ -128,4 +131,6 @@ public:
     size_t GetBestBidPriceLevel() const;
     // Get Best Ask (Returns SIZE_MAX if not found)
     size_t GetBestAskPriceLevel() const;
+
+    static void ComputeMemoryParams(size_t min_price, size_t max_price, size_t& req_bytes);
 };

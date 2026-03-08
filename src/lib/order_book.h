@@ -40,7 +40,7 @@ private:
     OrderNode* AccessBestAsk();
 
 public:
-    OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders = (1 << 12));
+    OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders = (1 << 12), size_t table_size = (1 << 14));
     ~OrderBook();
 
     void AddOrder(const Order& new_order, const eOrderSide side);

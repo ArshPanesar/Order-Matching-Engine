@@ -10,9 +10,9 @@ OrderNode* OrderBook::AccessBestAsk() {
     return const_cast<OrderNode*>(GetBestAsk());
 }
 
-OrderBook::OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders) :
+OrderBook::OrderBook(MemoryAllocator& mem_allocator, OrderPrice _min_price, OrderPrice _max_price, size_t _max_active_orders, size_t table_size) :
     allocator(mem_allocator),
-    order_table(mem_allocator, _max_active_orders),
+    order_table(mem_allocator, table_size),
     bids_price_levels(nullptr),
     asks_price_levels(nullptr),
     bids_bitset(mem_allocator, _max_price - _min_price + 1),

@@ -22,7 +22,7 @@ Order CreateOrder(OrderID id, OrderPrice price, OrderQuantity quantity) {
 // Adding the First Order
 TEST(OrderBookTest, AddingFirstOrder) {
 
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
     Order first_order = CreateOrder(1, 200, 300);
 
@@ -38,7 +38,7 @@ TEST(OrderBookTest, AddingFirstOrder) {
 // Adding Multiple Orders at the Same Price
 TEST(OrderBookTest, AddingMultipleOrdersSamePrice) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 100, 20);
@@ -59,7 +59,7 @@ TEST(OrderBookTest, AddingMultipleOrdersSamePrice) {
 // Adding Multiple Orders at the Different Prices
 TEST(OrderBookTest, AddingMultipleOrdersDiffPrice) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 101, 10);
     Order order_2 = CreateOrder(2, 100, 20);
@@ -84,7 +84,7 @@ TEST(OrderBookTest, AddingMultipleOrdersDiffPrice) {
 // Removing an Order
 TEST(OrderBookTest, RemovingOrder) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 100, 20);
@@ -103,7 +103,7 @@ TEST(OrderBookTest, RemovingOrder) {
 // Removing an Entire Price Level
 TEST(OrderBookTest, RemovingPriceLevel) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     Order order_1 = CreateOrder(1, 100, 10);
@@ -119,7 +119,7 @@ TEST(OrderBookTest, RemovingPriceLevel) {
 // Removing a Non-Existant Order
 TEST(OrderBookTest, RemovingNonExistantOrder) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
     Order order_1 = CreateOrder(1, 100, 10);
     Order order_2 = CreateOrder(2, 101, 10);
@@ -137,7 +137,7 @@ TEST(OrderBookTest, RemovingNonExistantOrder) {
 // Empty Book Operations
 TEST(OrderBookTest, EmptyBookOperations) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     const OrderNode* best_bid = book.GetBestBid();
@@ -150,7 +150,7 @@ TEST(OrderBookTest, EmptyBookOperations) {
 // Test for Sorting Correctness at Price Level
 TEST(OrderBookTest, PriceLevelSortingCorrectness) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
@@ -215,7 +215,7 @@ TEST(OrderBookTest, PriceLevelSortingCorrectness) {
 // Test for Sorting Correctness at FIFO Level
 TEST(OrderBookTest, FIFOSortingCorrectness) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
@@ -280,7 +280,7 @@ TEST(OrderBookTest, FIFOSortingCorrectness) {
 // Test for General Sorting Correctness
 TEST(OrderBookTest, GeneralSortingCorrectness) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     // Bids
@@ -344,7 +344,7 @@ TEST(OrderBookTest, GeneralSortingCorrectness) {
 // Search for Existing Order by ID
 TEST(OrderBookTest, SearchExistingOrder) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     Order order_1 = CreateOrder(1, 100, 10);
@@ -362,7 +362,7 @@ TEST(OrderBookTest, SearchExistingOrder) {
 // Search for Non-Existant Order by ID
 TEST(OrderBookTest, SearchNonExistantOrder) {
     
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     OrderBook book(allocator, 0, 1000, (1 << 8));
 
     Order order_1 = CreateOrder(1, 100, 10);

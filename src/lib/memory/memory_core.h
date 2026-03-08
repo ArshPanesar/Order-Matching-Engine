@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
+#include <bit>
 
 // Core Defs
 
@@ -8,6 +9,10 @@
 
 inline uintptr_t ComputeAlignedAddress(uintptr_t addr, size_t alignment) noexcept {
     return (addr + (alignment - 1)) & ~(alignment - 1);
+}
+
+inline size_t NextPowerOf2(size_t n) {
+    return std::bit_ceil(n);
 }
 
 // Main Allocator for the Engine (FreeList Implementation)

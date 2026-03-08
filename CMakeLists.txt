@@ -38,18 +38,25 @@ target_compile_definitions(LimitOrderBookLib PRIVATE
 # 
 # Tools Executable
 # 
-add_executable(ToolsProgram)
+add_executable(Tools)
 
-target_sources(ToolsProgram PRIVATE
+target_sources(Tools PRIVATE
     src/generator/order_event_generator.cpp
     src/util/spsc_queue.cpp
     src/tools.cpp
 )
 
-# Link to LimitOrderBookLib
-target_link_libraries(ToolsProgram PRIVATE LimitOrderBookLib)
+# Compiler Options
+target_compile_options(Tools PRIVATE
+    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
+    $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
+)
 
-target_compile_features(ToolsProgram PRIVATE cxx_std_20)
+# Link to LimitOrderBookLib
+target_link_libraries(Tools PRIVATE LimitOrderBookLib)
+
+target_compile_features(Tools PRIVATE cxx_std_20)
 
 
 
@@ -57,18 +64,25 @@ target_compile_features(ToolsProgram PRIVATE cxx_std_20)
 # Main Executable
 # 
 
-add_executable(LimitOrderBookProgram)
+add_executable(OrderMatchingEngine)
 
-target_sources(LimitOrderBookProgram PRIVATE
+target_sources(OrderMatchingEngine PRIVATE
     src/generator/order_event_generator.cpp
     src/util/spsc_queue.cpp
     src/main.cpp
 )
 
-# Link to LimitOrderBookLib
-target_link_libraries(LimitOrderBookProgram PRIVATE LimitOrderBookLib)
+# Compiler Options
+target_compile_options(OrderMatchingEngine PRIVATE
+    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
+    $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
+)
 
-target_compile_features(LimitOrderBookProgram PRIVATE cxx_std_20)
+# Link to LimitOrderBookLib
+target_link_libraries(OrderMatchingEngine PRIVATE LimitOrderBookLib)
+
+target_compile_features(OrderMatchingEngine PRIVATE cxx_std_20)
 
 # 
 # Testing

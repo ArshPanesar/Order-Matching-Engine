@@ -57,9 +57,6 @@ private:
         auto GetOppositeSideBestOrder = [&]() -> OrderNode* {
             return (order_side == eOrderSide::BID) ? order_book.AccessBestAsk() : order_book.AccessBestBid();
         };
-        auto GetOppositeSide = [&]() -> eOrderSide {
-            return (order_side == eOrderSide::BID) ? eOrderSide::ASK : eOrderSide::BID;
-        };
         auto IsBookCrossed = [&](const OrderNode* best_opp_side_order) -> bool {
             // Order crosses the Book if:
             // 1. Its a Bid and its Price is Higher than Best Ask
@@ -172,7 +169,7 @@ private:
         }
     }
 
-    void OnStopExecutionEvent(OrderEvent& order_event) {
+    void OnStopExecutionEvent() {
         // Signal TradeEvent Sink to stop execution
         TradeEvent stop_event;
         stop_event.type = eTradeEventType::STOP_EXECUTION;
@@ -182,8 +179,8 @@ private:
 
 public:
     explicit MatchingEngine(OrderEventSink& orders_sink, TradeEventSink& trades_sink, MemoryAllocator& mem_allocator, 
-                OrderPrice min_price, OrderPrice max_price, size_t max_active_orders = (1 << 12)) : 
-        order_book(mem_allocator, min_price, max_price, max_active_orders),
+                OrderPrice min_price, OrderPrice max_price, size_t max_active_orders = (1 << 12), size_t order_table_size = (1 << 13)) : 
+        order_book(mem_allocator, min_price, max_price, max_active_orders, order_table_size),
         order_event_sink(orders_sink),
         trade_event_sink(trades_sink)
         {};
@@ -210,7 +207,7 @@ public:
                 break;
             
             case eOrderEventType::STOP_EXECUTION:
-                OnStopExecutionEvent(order_event);
+                OnStopExecutionEvent();
                 return false;
         }
 

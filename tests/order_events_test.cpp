@@ -9,7 +9,7 @@
 TEST(OrderEventsTest, CancelRestingOrder) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order o1{1, 1, 100, 10, 10};
@@ -36,7 +36,7 @@ TEST(OrderEventsTest, CancelRestingOrder) {
 TEST(OrderEventsTest, AmendOrder) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order b1{1, 1, 100, 10, 10};
@@ -60,7 +60,7 @@ TEST(OrderEventsTest, AmendOrder) {
 TEST(OrderEventsTest, AmendNonExistentOrderIgnored) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order fake{99, 1, 100, 10, 10};

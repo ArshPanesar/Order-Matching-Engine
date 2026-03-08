@@ -11,7 +11,7 @@
 TEST(MatchingEngineLimitOrdersTest, RestingOrderOnly) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order o1{1, 100, 100, 10, 10};
@@ -25,7 +25,7 @@ TEST(MatchingEngineLimitOrdersTest, RestingOrderOnly) {
 TEST(MatchingEngineLimitOrdersTest, SingleCrossingTrade) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Resting sell order
@@ -49,7 +49,7 @@ TEST(MatchingEngineLimitOrdersTest, SingleCrossingTrade) {
 TEST(MatchingEngineLimitOrdersTest, PartialFillRestingOrder) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order sell{1, 100, 105, 10, 10};
@@ -73,7 +73,7 @@ TEST(MatchingEngineLimitOrdersTest, PartialFillRestingOrder) {
 TEST(MatchingEngineLimitOrdersTest, MultipleFillsFIFO) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Two resting sell orders at same price
@@ -100,7 +100,7 @@ TEST(MatchingEngineLimitOrdersTest, MultipleFillsFIFO) {
 TEST(MatchingEngineLimitOrdersTest, MultiplePriceLevels) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 100, 105, 5, 5};
@@ -148,7 +148,7 @@ OrderEvent MakeLimitOrder(OrderID id, eOrderSide side, OrderPrice price, OrderQu
 TEST(MatchingEngineLimitOrdersTest, LongRunningTest) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     OrderTimestamp current_timestamp = 1;
@@ -254,7 +254,7 @@ TEST(MatchingEngineLimitOrdersTest, LongRunningTest) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderOnEmptyBook) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 0, 5, 5};
@@ -272,7 +272,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderOnEmptyBook) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderFullyFilled) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -299,7 +299,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderFullyFilled) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderPartiallyFilled) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -327,7 +327,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderPartiallyFilled) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderMultiplePriceLevels) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -368,7 +368,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderMultiplePriceLevels) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderExhaustsLiquidity) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -402,7 +402,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderExhaustsLiquidity) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderSell) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -437,7 +437,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderSell) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderFIFO) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -472,7 +472,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderFIFO) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderExactFill) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -506,7 +506,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderExactFill) {
 TEST(MatchingEngineMarketOrdersTest, MarketOrderIgnoreSameSide) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     // Initial Book with a Single Ask
@@ -534,7 +534,7 @@ TEST(MatchingEngineMarketOrdersTest, MarketOrderIgnoreSameSide) {
 TEST(MatchingEngineMarketOrdersTest, MultipleMarketOrders) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 100, 100, 100};
@@ -570,7 +570,7 @@ TEST(MatchingEngineMarketOrdersTest, MultipleMarketOrders) {
 TEST(MatchingEngineMarketOrdersTest, NoInfiniteLoop) {
     TestOrderEventSink order_sink;
     TestTradeEventSink trade_sink;
-    MemoryAllocator allocator(1 << 17);
+    MemoryAllocator allocator(1 << 20);
     MatchingEngine<TestOrderEventSink, TestTradeEventSink> engine(order_sink, trade_sink, allocator, 0, 500, (1 << 8));
 
     Order s1{1, 1, 100, 10, 10};

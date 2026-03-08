@@ -1,8 +1,12 @@
 #include <iostream>
 #include <fstream>
+#include <getopt.h>
 #include "util/utility.h"
 #include "generator/order_event_generator.h"
 #include <chrono>
+#include <filesystem>
+
+const std::string BINARY_FILE_EXT = ".bin";
 
 // File Reader Order Event Sink
 class FileOrderEventSink {
@@ -10,24 +14,16 @@ private:
     SPSCQueue<OrderEvent> queue;
 
     std::jthread reader_thread;
+    std::string file_path;
 public:
-    FileOrderEventSink(size_t max_live_orders) : 
-        queue(max_live_orders) {};
+    FileOrderEventSink(size_t max_live_orders, const std::string& _file_path) : 
+        queue(max_live_orders), file_path(_file_path) {};
     ~FileOrderEventSink() = default;
     
     void Run() {
 
         reader_thread = std::jthread([&]() {
-            
-            // Linux Only: Pinning this Thread to a separate core
-            // cpu_set_t cpuset;
-            // CPU_ZERO(&cpuset);
-            // CPU_SET(1, &cpuset);
-            // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-
-            auto start = std::chrono::high_resolution_clock::now();
-
-            std::ifstream input_file_stream("../events.bin", std::ios::binary);
+            std::ifstream input_file_stream(file_path, std::ios::binary);
             if (!input_file_stream.is_open()) {
                 std::cout << "FileOrderEventSink::Run(): File could not be opened\n";
                 return;
@@ -42,12 +38,6 @@ public:
             OrderEvent stop_event{};
             stop_event.event_type = eOrderEventType::STOP_EXECUTION;
             while (!queue.Push(stop_event));
-
-            auto end = std::chrono::high_resolution_clock::now();
-
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            
-            // std::cout << "Generator Thread: " << duration.count() << " ms" << std::endl;
         });
     }
 
@@ -65,10 +55,11 @@ private:
     SPSCQueue<TradeEvent> queue;
 
     std::jthread writer_thread;
-
+    std::string file_path;
+    
 public:
-    FileTradeEventSink(size_t max_live_orders) : 
-        queue(max_live_orders) {}
+    FileTradeEventSink(size_t max_live_orders, const std::string& _file_path) : 
+        queue(max_live_orders), file_path(_file_path) {}
     ~FileTradeEventSink() = default;
     
     // Conform to Concept
@@ -78,16 +69,7 @@ public:
 
     void Run() {
         writer_thread = std::jthread([&]() {
-            
-            // Linux Only: Pinning this Thread to a separate core
-            // cpu_set_t cpuset;
-            // CPU_ZERO(&cpuset);
-            // CPU_SET(1, &cpuset);
-            // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-
-            auto start = std::chrono::high_resolution_clock::now();
-
-            std::ofstream output_file_stream("../trade_events.bin", std::ios::binary);
+            std::ofstream output_file_stream(file_path, std::ios::binary);
             if (!output_file_stream.is_open()) {
                 std::cout << "FileTradeEventSink::Run(): File could not be opened\n";
                 return;
@@ -100,7 +82,7 @@ public:
 
             TradeEvent event;
             while (true) {
-                while (!queue.Pop(event)) {  }
+                while (!queue.Pop(event));
                 output_file_stream.write(reinterpret_cast<const char*>(&event), sizeof(TradeEvent));
                 
                 // Stop on Signal
@@ -110,62 +92,143 @@ public:
 
 
             output_file_stream.close();
-            
-
-            auto end = std::chrono::high_resolution_clock::now();
-
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            
-            // std::cout << "Generator Thread: " << duration.count() << " ms" << std::endl;
         });
     }
 };
 
-int main() {
+int main(int argc, char** argv) {
 
-    MemoryAllocator mem_allocator((1u << 30u));
+    // Process Options
+    struct option config_options[] = {
+        {"input", required_argument, NULL, 'i'}, // Input File Path
+        {"output", required_argument, NULL, 'o'}, // Output File Path
+        {"config", required_argument, NULL, 'c'}, // Engine Config File Path
+        {0, 0, 0, 0}
+    };
+
+    // Options Storage
+    std::string input_file_path;
+    bool input_file_provided = false;
     
-
-    uint64_t max_orders = 7000000u;
-    size_t max_live_orders = (1 << 22);
-
-
-    // Synthetic Data Test
-    FileOrderEventSink file_order_sink(max_live_orders);
-    FileTradeEventSink file_trade_sink(max_live_orders);
+    std::string output_file_path;
+    bool output_file_provided = false;
     
-    MatchingEngine<FileOrderEventSink, FileTradeEventSink> matching_engine(file_order_sink, file_trade_sink, mem_allocator, 10, 200, max_live_orders);
+    std::string config_file_path;
+    bool config_file_provided = false;
+    
+    // Parse Options
+    int o;
+    optind = 1; // Skip Program Name
+    while ((o = getopt_long(argc, argv, "i:o:c:", config_options, NULL)) != -1) {
+        switch (o) {
+            case 'i':
+                input_file_path = optarg;
+                input_file_provided = true;
+                break;
 
-    // Avoiding Infinite Loop
-    std::cout << "Starting Order Stream...\n";
+            case 'o':
+                output_file_path = optarg;
+                output_file_provided = true;
+                break;
+            
+            case 'c':
+                config_file_path = optarg;
+                config_file_provided = true;
+                break;
+            
+            default:
+                break;
+        }
+    }
 
-    // Start the Generator
+    // Helper Funcs
+    auto CheckFileExists = [](const std::string& file_path) {
+        return std::filesystem::exists(file_path);
+    };
+    auto IsBinary = [](const std::string& file_path) {
+        std::filesystem::path path(file_path);
+        if (path.has_extension())
+            return (path.extension().string().compare(BINARY_FILE_EXT) == 0);
+        return false;
+    };
+    auto ValidateBinaryInputFile = [&]() {
+        if (input_file_provided) {
+            if (!CheckFileExists(input_file_path)) {
+                std::cout << "Input File is does not exist. Given Path: " << input_file_path << "\n";
+                return false;
+            }
+            if (!IsBinary(input_file_path)) {
+                std::cout << "Input File is not Binary. Ensure .bin extension at the end of the file name. Given Path: " << input_file_path << "\n";
+                return false;
+            }
+        } else {
+            std::cout << "Input File not provided. Usage: --input <file_path>\n";
+            return false;
+        }
+
+        return true;
+    };
+    auto ValidateBinaryOutputFile = [&]() {
+        if (output_file_provided) {
+            if (!IsBinary(output_file_path)) {
+                std::cout << "Output File is not Binary. Ensure .bin extension at the end of the file name. Given Path: " << output_file_path << "\n";
+                return false;
+            }
+        } else {
+            std::cout << "Output File not provided. Use: --output <file_path>\n";
+            return false;
+        }
+        return true;
+    };
+    auto ValidateConfigFile = [&]() {
+        if (config_file_provided) {
+            if (!CheckFileExists(config_file_path)) {
+                std::cout << "Config File does not exist. Given Path: " << config_file_path << "\n";
+                return false;
+            }
+        } else {
+            std::cout << "Config File not provided. Use: --config <file_path>\n";
+            return false;
+        }
+        return true;
+    };
+
+    if (!ValidateBinaryInputFile() || !ValidateBinaryOutputFile() || !ValidateConfigFile()) {
+        return EXIT_FAILURE;
+    }
+
+    MatchingEngineConfig config = LoadConfigFromFile(config_file_path);
+
+    uint64_t max_orders = config.max_order_events;
+    MemoryParams mem_params;
+    if (!ComputeMemoryParams(max_orders, config.min_price, config.max_price, mem_params)) {
+        return EXIT_FAILURE;
+    }
+    PrintMemoryParams(mem_params);
+
+    MemoryAllocator mem_allocator(mem_params.mem_allocator_bytes);    
+
+    // File Sinks
+    FileOrderEventSink file_order_sink(std::bit_ceil(max_orders), input_file_path);
+    FileTradeEventSink file_trade_sink(std::bit_ceil(max_orders), output_file_path);
+    
+    MatchingEngine<FileOrderEventSink, FileTradeEventSink> matching_engine(file_order_sink, file_trade_sink, mem_allocator, 
+        config.min_price, config.max_price, max_orders, mem_params.order_table_size);
+
+
+    // Start the I/O Streams
     file_order_sink.Run();
     file_trade_sink.Run();
 
-    // Run Matching Engine in a Separate Thread
-    std::jthread engine_thread([&]() {
-        // Linux Only: Pinning this Thread to a separate core
-        // cpu_set_t cpuset;
-        // CPU_ZERO(&cpuset);
-        // CPU_SET(4, &cpuset);
-        // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+    // Run Matching Engine
+    auto start = std::chrono::high_resolution_clock::now();
 
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        while (matching_engine.Run());
-        
-        auto end = std::chrono::high_resolution_clock::now();
-
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        
-        std::cout << "Engine Thread: " << duration.count() << " ms" << std::endl;
-        // std::cout << "Orders Exhausted\n";
-    });
+    while (matching_engine.Run());
     
-    engine_thread.join();
-
-
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    
+    std::cout << "Engine Duration: " << duration.count() << " ms" << std::endl;
+    
     return 0;
 }
