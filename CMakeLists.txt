@@ -100,3 +100,11 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+
+#
+# Benchmarks (Only for Release Builds)
+#
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_subdirectory(benchmarks)
+endif()
