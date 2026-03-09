@@ -214,9 +214,11 @@ int main(int argc, char** argv) {
 
     MatchingEngineConfig config = LoadConfigFromFile(config_file_path);
 
-    uint64_t max_orders = config.max_order_events;
+    size_t max_order_events = config.max_order_events;
+    size_t max_live_orders = config.max_live_orders;
+    
     MemoryParams mem_params;
-    if (!ComputeMemoryParams(max_orders, config.min_price, config.max_price, mem_params)) {
+    if (!ComputeMemoryParams(max_order_events, max_live_orders, config.min_price, config.max_price, mem_params)) {
         return EXIT_FAILURE;
     }
     PrintMemoryParams(mem_params);
@@ -224,11 +226,11 @@ int main(int argc, char** argv) {
     MemoryAllocator mem_allocator(mem_params.mem_allocator_bytes);    
 
     // File Sinks
-    FileOrderEventSink file_order_sink(NextPowerOf2(max_orders), input_file_path);
-    FileTradeEventSink file_trade_sink(NextPowerOf2(max_orders), output_file_path);
+    FileOrderEventSink file_order_sink(NextPowerOf2(max_order_events), input_file_path);
+    FileTradeEventSink file_trade_sink(NextPowerOf2(max_order_events), output_file_path);
     
     MatchingEngine<FileOrderEventSink, FileTradeEventSink> matching_engine(file_order_sink, file_trade_sink, mem_allocator, 
-        config.min_price, config.max_price, max_orders, mem_params.order_table_size);
+        config.min_price, config.max_price, max_live_orders, mem_params.order_table_size);
 
 
     // Start the I/O Streams

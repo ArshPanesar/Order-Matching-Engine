@@ -1,4 +1,6 @@
 #pragma once
+#include "util/errors.h"
+#include "util/hints.h"
 #include <cstdint>
 #include <cstddef>
 #include <bit>

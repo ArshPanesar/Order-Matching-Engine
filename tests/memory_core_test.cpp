@@ -108,7 +108,7 @@ TEST(MemoryCoreTests, FragmentationBlocksLargeAlloc) {
 
     ASSERT_DEATH(
         alloc.Allocate(256, 8),
-        "MemoryAllocator ran out of memory!"
+        "[TERMINATION ERROR]"
     );
 }
 

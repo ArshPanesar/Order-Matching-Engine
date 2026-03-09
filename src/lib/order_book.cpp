@@ -49,8 +49,8 @@ OrderBook::~OrderBook() {
 }
 
 void OrderBook::AddOrder(const Order &new_order, const eOrderSide side) {
-    assert(new_order.price >= min_price);
-    assert(new_order.price <= max_price);
+    if (UNLIKELY_BRANCH(new_order.price < min_price || new_order.price > max_price))
+        TERMINATE_ON_ERROR("OrderBook received an Order with Price = ", new_order.price, "; Which is Out of Min/Max Price Range of [", min_price, ", ", max_price, "].");
 
     // Determine Side
     auto* side_price_levels = (side == eOrderSide::BID) ? bids_price_levels : asks_price_levels;

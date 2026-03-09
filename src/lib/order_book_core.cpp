@@ -1,5 +1,4 @@
 #include "order_book_core.h"
-#include <assert.h>
 #include <utility>
 #include <bit>
 #include <algorithm>
@@ -13,7 +12,8 @@ OrderTable::OrderTable(MemoryAllocator& mem_allocator, size_t _capacity) :
     size(0u) {
     
     // Ensure Capacity is a Power of 2
-    assert((capacity & (capacity - 1)) == 0);
+    if ((capacity & (capacity - 1)) != 0)
+        TERMINATE_ON_ERROR("OrderTable capacity must be a power of 2. Given Capacity = ", capacity, ".");
 
     // Allocate Memory for the Table
     table = (Slot*)allocator.Allocate(capacity * sizeof(Slot), alignof(Slot));
@@ -36,6 +36,9 @@ OrderTable::~OrderTable() {
 }
 
 void OrderTable::Insert(const OrderID& order_id, OrderNode* order_node) {
+    if (UNLIKELY_BRANCH(size >= capacity))
+        TERMINATE_ON_ERROR("OrderTable ran out of memory. Given Capacity = ", capacity, ".");
+    
     size_t index = Hash(order_id) & (capacity - 1);
     
     // Find an Empty Slot
@@ -52,7 +55,7 @@ void OrderTable::Insert(const OrderID& order_id, OrderNode* order_node) {
         }
 
         ++slot.distance;
-        assert(slot.distance < capacity);
+        LOB_ASSERT(slot.distance < capacity);
         
         current_index = (current_index + 1) & (capacity - 1); // Wrap around
     }
@@ -198,7 +201,8 @@ OrderNodePool::OrderNodePool(MemoryAllocator& mem_allocator, const size_t& _capa
     block_pool(nullptr),
     capacity(_capacity),
     head(nullptr) {
-    assert(capacity >= 2 && "OrderNodePool: Capacity must not be less than 2.");
+    if (capacity < 2)
+        TERMINATE_ON_ERROR("OrderNodePool: Capacity must not be less than 2. Given Capacity = ", capacity, ".");
 
     // Allocate Pool
     block_pool = (Block*)allocator.Allocate(sizeof(Block) * capacity, alignof(Block));
@@ -220,8 +224,9 @@ OrderNodePool::~OrderNodePool() {
 }
 
 OrderNode* OrderNodePool::Acquire() {
-    assert(head != nullptr && "OrderNodePool ran out of Memory!");
-    
+    if (UNLIKELY_BRANCH(head == nullptr))
+        TERMINATE_ON_ERROR("OrderNodePool ran out of Memory! Given Capacity = ", capacity, ".");
+
     // Release Head Block and Move Forward
     Block* block = head;
     head = head->next;
@@ -233,7 +238,7 @@ void OrderNodePool::Release(OrderNode* order_node) {
     // Get Pointer to this OrderNode's Block
     uintptr_t node_addr = reinterpret_cast<uintptr_t>(order_node);
     uintptr_t base_addr = reinterpret_cast<uintptr_t>(block_pool);
-    assert(node_addr >= base_addr && node_addr <= (base_addr + sizeof(Block) * capacity) && "OrderNodePool: Tried to release an invalid OrderNode");
+    LOB_ASSERT(node_addr >= base_addr && node_addr <= (base_addr + sizeof(Block) * capacity) && "OrderNodePool: Tried to release an invalid OrderNode");
 
     // Prepend Free Block
     Block* released_block = reinterpret_cast<Block*>(reinterpret_cast<char*>(node_addr) - offsetof(Block, order_node));
@@ -283,7 +288,7 @@ PriceLevelBitset::~PriceLevelBitset() {
 }
 
 void PriceLevelBitset::ActivatePriceLevel(size_t price_level_index) {
-    assert(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in ActivatePriceLevel()!");
+    LOB_ASSERT(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in ActivatePriceLevel()!");
 
     // Find the Word to be set
     size_t word_index = price_level_index >> 6;
@@ -294,7 +299,7 @@ void PriceLevelBitset::ActivatePriceLevel(size_t price_level_index) {
 }
 
 void PriceLevelBitset::DeactivatePriceLevel(size_t price_level_index) {
-    assert(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in DeactivatePriceLevel()!");
+    LOB_ASSERT(price_level_index < num_price_levels && "PriceLevelBitset: Out of Bounds Price Level Index provided in DeactivatePriceLevel()!");
 
     // Find the Word to be set
     size_t word_index = price_level_index >> 6;

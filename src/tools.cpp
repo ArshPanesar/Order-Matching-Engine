@@ -44,14 +44,14 @@ bool PerformTask_GenerateEvents(const std::string& output_file_path, const std::
     size_t max_order_events = config.max_order_events;
 
     MemoryParams mem_params;
-    if (!ComputeMemoryParams(max_order_events, config.min_price, config.max_price, mem_params)) {
+    if (!ComputeMemoryParams(max_order_events, config.max_live_orders, config.min_price, config.max_price, mem_params)) {
         std::cout << "ERROR: Memory Requirements could not be fulfilled.\n";
         return false;
     }
     PrintMemoryParams(mem_params);
 
     MemoryAllocator mem_allocator(mem_params.mem_allocator_bytes);
-    size_t max_live_orders = max_order_events;
+    size_t max_live_orders = config.max_live_orders;
 
     gen_params.min_price = config.min_price;
     gen_params.max_price = config.max_price;

@@ -44,6 +44,7 @@ inline std::string FormatTradeEvent(const TradeEvent& event) {
 
 struct MemoryParams {
     size_t max_order_events{};
+    size_t max_live_orders{};
     size_t mem_allocator_bytes{}; // Total Number of bytes needed for the Memory Allocator
 
     //
@@ -63,7 +64,7 @@ struct MemoryParams {
     size_t price_level_bitset_bytes{};
 };
 
-inline bool ComputeMemoryParams(size_t max_order_events, size_t min_price, size_t max_price, MemoryParams& params) {
+inline bool ComputeMemoryParams(size_t max_order_events, size_t max_live_orders, size_t min_price, size_t max_price, MemoryParams& params) {
     
     if (max_order_events < 1) {
         std::cerr << "Failed to compute memory requirements: Max Order Events should be greater than 0." << "\n";
@@ -76,10 +77,11 @@ inline bool ComputeMemoryParams(size_t max_order_events, size_t min_price, size_
 
     size_t num_price_levels = max_price - min_price + 1;
     params.max_order_events = max_order_events;
+    params.max_live_orders = max_live_orders;
 
     try {
-        OrderTable::ComputeMemoryParams(max_order_events, params.order_table_size, params.order_table_bytes);
-        OrderNodePool::ComputeMemoryParams(max_order_events, params.order_pool_size, params.order_pool_bytes);
+        OrderTable::ComputeMemoryParams(params.max_live_orders, params.order_table_size, params.order_table_bytes);
+        OrderNodePool::ComputeMemoryParams(params.max_live_orders, params.order_pool_size, params.order_pool_bytes);
         
         PriceLevelBitset::ComputeMemoryParams(min_price, max_price, params.price_level_bitset_bytes);
         params.price_level_bitset_size = num_price_levels;
@@ -107,8 +109,8 @@ inline bool ComputeMemoryParams(size_t max_order_events, size_t min_price, size_
         if (__builtin_add_overflow(params.mem_allocator_bytes, total_price_level_bitset_bytes, &params.mem_allocator_bytes))
             throw std::runtime_error("MemoryAllocator Bytes: Overflow occurred when adding PriceLevel Bitset bytes");
 
-        // Extra Bytes for Headers or Metadata
-        size_t extra_bytes = (1 << 14);
+        // Extra Bytes for Headers and Metadata
+        size_t extra_bytes = (1 << 13);
         if (__builtin_add_overflow(params.mem_allocator_bytes, extra_bytes, &params.mem_allocator_bytes))
             throw std::runtime_error("MemoryAllocator Bytes: Overflow occurred when adding Extra Bytes for Metadata");
 
@@ -135,22 +137,22 @@ inline void PrintMemoryParams(const MemoryParams& params) {
     std::cout << std::fixed << std::setprecision(2);
 
     std::cout << "OrderTable:\n";
-    std::cout << "  Capacity : " << params.order_table_size << "\n";
-    std::cout << "  Memory   : " << params.order_table_bytes << " bytes (" << ConvertBytesToMegaBytes(params.order_table_bytes) << " MB)\n\n";
+    std::cout << "  Capacity: " << params.order_table_size << "\n";
+    std::cout << "  Memory: " << params.order_table_bytes << " bytes (" << ConvertBytesToMegaBytes(params.order_table_bytes) << " MB)\n\n";
 
     std::cout << "OrderNodePool:\n";
-    std::cout << "  Capacity : " << params.order_pool_size << "\n";
-    std::cout << "  Memory   : " << params.order_pool_bytes << " bytes (" << ConvertBytesToMegaBytes(params.order_pool_bytes) << " MB)\n\n";
+    std::cout << "  Capacity: " << params.order_pool_size << "\n";
+    std::cout << "  Memory: " << params.order_pool_bytes << " bytes (" << ConvertBytesToMegaBytes(params.order_pool_bytes) << " MB)\n\n";
 
     std::cout << "PriceLevel Array (per side):\n";
-    std::cout << "  Size     : " << params.price_level_arr_size << "\n";
-    std::cout << "  Memory   : " << params.price_level_arr_bytes << " bytes (" << ConvertBytesToMegaBytes(params.price_level_arr_bytes) << " MB)\n\n";
+    std::cout << "  Size: " << params.price_level_arr_size << "\n";
+    std::cout << "  Memory: " << params.price_level_arr_bytes << " bytes (" << ConvertBytesToMegaBytes(params.price_level_arr_bytes) << " MB)\n\n";
 
     std::cout << "PriceLevel Bitset (per side):\n";
-    std::cout << "  Size     : " << params.price_level_bitset_size << "\n";
-    std::cout << "  Memory   : " << params.price_level_bitset_bytes << " bytes (" << ConvertBytesToMegaBytes(params.price_level_bitset_bytes) << " MB)\n\n";
+    std::cout << "  Size: " << params.price_level_bitset_size << "\n";
+    std::cout << "  Memory: " << params.price_level_bitset_bytes << " bytes (" << ConvertBytesToMegaBytes(params.price_level_bitset_bytes) << " MB)\n\n";
 
-    std::cout << "Total Memory Required (Allocator):\n";
+    std::cout << "Total Memory Required (MemoryAllocator):\n";
     std::cout << "  " << params.mem_allocator_bytes << " bytes (" << ConvertBytesToMegaBytes(params.mem_allocator_bytes) << " MB)\n";
 }
 
@@ -160,6 +162,7 @@ inline void PrintMemoryParams(const MemoryParams& params) {
 
 struct MatchingEngineConfig {
     size_t max_order_events{};
+    size_t max_live_orders{}; // Maximum Number of Orders that can be stored in the OrderBook 
     size_t min_price{};
     size_t max_price{};
 };
@@ -192,6 +195,7 @@ inline MatchingEngineConfig LoadConfigFromFile(const std::string& config_file_pa
     MatchingEngineConfig conf{};
 
     conf.max_order_events = std::stoull(table["max_order_events"]);
+    conf.max_live_orders = std::stoull(table["max_live_orders"]);
     conf.min_price = std::stoul(table["min_price"]);
     conf.max_price = std::stoul(table["max_price"]);
 

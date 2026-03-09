@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cstring>
 #include <cstddef>
 #include <stdlib.h>
@@ -25,9 +24,12 @@ MemoryAllocator::MemoryAllocator(size_t num_bytes) :
     size_t required_size = num_bytes + sizeof(Region);
     required_size = ComputeAlignedAddress(required_size, MAX_ALIGNMENT);
 
-    // Allocate Buffer
-    base_ptr = ::operator new(required_size, std::align_val_t(MAX_ALIGNMENT));
-    assert(base_ptr != nullptr);
+    try {
+        // Allocate Buffer
+        base_ptr = ::operator new(required_size, std::align_val_t(MAX_ALIGNMENT));
+    } catch (const std::bad_alloc&) {
+        TERMINATE_ON_ERROR("Failed to Allocate ", required_size, " bytes, with Alignment = ", MAX_ALIGNMENT, ".");
+    }   
     
     total_size = required_size;
     memset(base_ptr, 0, total_size);
@@ -55,8 +57,8 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
     // Check Request Validity
     if (alignment == 0u)
         alignment = alignof(std::max_align_t);
-    assert(bytes > 0 && (alignment & (alignment - 1)) == 0);
-    assert(alignment <= MAX_ALIGNMENT);
+    LOB_ASSERT(bytes > 0 && (alignment & (alignment - 1)) == 0);
+    LOB_ASSERT(alignment <= MAX_ALIGNMENT);
 
     // Find First Fit
     Region* avail = head;
@@ -118,12 +120,11 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
             RunVerificationTests();
 #endif //LOB_DEBUG
 
-            assert(aligned_avail_addr % alignment == 0);
-            assert(aligned_avail_addr % alignof(std::max_align_t) == 0);
-            assert(alloc_end_addr > aligned_avail_addr);
-            assert(alloc_end_addr - aligned_avail_addr >= bytes);
+            LOB_ASSERT(aligned_avail_addr % alignment == 0);
+            LOB_ASSERT(aligned_avail_addr % alignof(std::max_align_t) == 0);
+            LOB_ASSERT(alloc_end_addr > aligned_avail_addr);
+            LOB_ASSERT(alloc_end_addr - aligned_avail_addr >= bytes);
             
-
             // Return Aligned Pointer
             return reinterpret_cast<void*>(aligned_avail_addr);
         }
@@ -133,7 +134,7 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
         avail = avail->next;
     }
     
-    assert(false && "MemoryAllocator ran out of memory!");
+    TERMINATE_ON_ERROR("Ran out of Memory! Free Bytes = ", free_bytes, ", Allocated Bytes = ", allocated_bytes, ".");
     return nullptr;
 }
 
@@ -147,15 +148,15 @@ void MemoryAllocator::Free(void *ptr) {
     
     // Ensure Address Fits within the Heap Allocated Block
     uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
-    assert(addr >= ((uintptr_t)base_ptr + sizeof(Region)) && "MemoryAllocator tried to free invalid pointer!");
-    assert(addr <= ((uintptr_t)base_ptr + total_size) && "MemoryAllocator tried to free invalid pointer!");
+    LOB_ASSERT(addr >= ((uintptr_t)base_ptr + sizeof(Region)) && "MemoryAllocator tried to free invalid pointer!");
+    LOB_ASSERT(addr <= ((uintptr_t)base_ptr + total_size) && "MemoryAllocator tried to free invalid pointer!");
     
     // Move Address Backwards to get the Header
     uintptr_t orig_region_addr = addr - sizeof(Region);
     
     // Extract Header Info
     Region* orig_region = reinterpret_cast<Region*>(orig_region_addr);
-    assert(orig_region->next == nullptr);
+    LOB_ASSERT(orig_region->next == nullptr);
 
     size_t alloc_size = orig_region->size;
 
@@ -241,7 +242,7 @@ void MemoryAllocator::VerifyRegionsIncreasingOrder() {
 
     while (curr != nullptr) {
         if (curr_addr <= prev_addr)
-            assert(false && "INTERNAL TEST FAILED: VerifyRegionsIncreasingOrder()");
+            LOB_ASSERT(false && "INTERNAL TEST FAILED: VerifyRegionsIncreasingOrder()");
         
         prev = curr;
         curr = curr->next;
@@ -263,7 +264,7 @@ void MemoryAllocator::VerifyNonOverlappingRegions() {
     while (curr != nullptr) {
         size_t prev_end = prev_addr + prev->size;
         if (curr_addr <= prev_end)
-            assert(false && "INTERNAL TEST FAILED: VerifyNonOverlappingRegions()");
+            LOB_ASSERT(false && "INTERNAL TEST FAILED: VerifyNonOverlappingRegions()");
         
         prev = curr;
         curr = curr->next;
@@ -281,7 +282,7 @@ void MemoryAllocator::VerifyCoalescenceImpossible() {
     Region* curr = head->next;
     while (curr != nullptr) {
         if (CanCoalesce(prev, curr))
-            assert(false && "INTERNAL TEST FAILED: VerifyCoalescenceImpossible()");
+            LOB_ASSERT(false && "INTERNAL TEST FAILED: VerifyCoalescenceImpossible()");
         
         prev = curr;
         curr = curr->next;
@@ -292,7 +293,7 @@ void MemoryAllocator::VerifyNonZeroRegions() {
     Region* curr = head;
     while (curr != nullptr) {
         if (curr->size <= 0)
-            assert(false && "INTERNAL TEST FAILED: VerifyNonZeroRegions()");
+            LOB_ASSERT(false && "INTERNAL TEST FAILED: VerifyNonZeroRegions()");
         
         curr = curr->next;
     }
@@ -306,7 +307,7 @@ void MemoryAllocator::VerifyFreeBytes() {
         curr = curr->next;
     }
 
-    assert(count_bytes == free_bytes && "INTERNAL TEST FAILED: VerifyFreeBytes()");
+    LOB_ASSERT(count_bytes == free_bytes && "INTERNAL TEST FAILED: VerifyFreeBytes()");
 }
 
 void MemoryAllocator::RunVerificationTests() {
