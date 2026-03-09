@@ -1,5 +1,3 @@
-#define LOB_DEBUG
-
 #include <gtest/gtest.h>
 #include "memory/memory_core.h"
 
@@ -140,7 +138,7 @@ TEST(MemoryCoreTests, StatsCorrectness) {
 }
 
 TEST(MemoryCoreTests, StressTest) {
-    MemoryAllocator alloc(64 * 1024);
+    MemoryAllocator alloc(64 * 2048);
     std::vector<void*> ptrs;
 
     for (int i = 0; i < 1000; ++i) {

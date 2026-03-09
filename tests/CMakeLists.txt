@@ -26,6 +26,8 @@ target_link_libraries(RunTests PRIVATE
     gtest_main
 )
 
+target_compile_definitions(RunTests PRIVATE LOB_DEBUG)
+
 target_compile_features(RunTests PRIVATE cxx_std_20)
 
 add_test(NAME RunTests COMMAND RunTests)

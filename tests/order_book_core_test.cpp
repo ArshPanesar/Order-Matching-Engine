@@ -23,14 +23,16 @@ void PrintOrderTableMetrics(OrderTable& table) {
 
 TEST(OrderTableTest, InsertAndFindSingle) {
     MemoryAllocator memory_allocator(1 << 17);
-    OrderTable table(memory_allocator);
+    {
+        OrderTable table(memory_allocator);
 
-    OrderNode node{10, 42, 42, eOrderSide::ASK, nullptr, nullptr};
-    table.Insert(1, &node);
+        OrderNode node{10, 42, 42, eOrderSide::ASK, nullptr, nullptr};
+        table.Insert(1, &node);
 
-    auto* found = table.Find(1);
-    ASSERT_NE(found, nullptr);
-    EXPECT_EQ(found->price, 42);
+        auto* found = table.Find(1);
+        ASSERT_NE(found, nullptr);
+        EXPECT_EQ(found->price, 42);
+    }
 }
 
 TEST(OrderTableTest, FindNonExistantID) {

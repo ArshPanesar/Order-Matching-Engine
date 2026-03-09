@@ -4,12 +4,13 @@
 #include <bit>
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
 
 OrderTable::OrderTable(MemoryAllocator& mem_allocator, size_t _capacity) : 
+    allocator(mem_allocator),
     table(nullptr),
     capacity(_capacity),
-    size(0u),
-    allocator(mem_allocator) {
+    size(0u) {
     
     // Ensure Capacity is a Power of 2
     assert((capacity & (capacity - 1)) == 0);
@@ -145,13 +146,11 @@ void OrderTable::ComputeMemoryParams(size_t num_of_orders, size_t &req_capacity,
 
 #ifdef LOB_DEBUG
 
-double OrderTable::ComputeLoadFactor() const
-{
+double OrderTable::ComputeLoadFactor() const {
     return (double)size / (double)capacity;
 }
 
-size_t OrderTable::FindDistance(const OrderID &order_id) const
-{
+size_t OrderTable::FindDistance(const OrderID &order_id) const {
     size_t index = Hash(order_id) & (capacity - 1);
 
     size_t current_index = index;
@@ -172,7 +171,6 @@ size_t OrderTable::FindDistance(const OrderID &order_id) const
 }
 
 void OrderTable::ComputeAvgAndMaxDistances(float& avg_distance, size_t& max_distance) const {
-    
     size_t largest_distance = 0u;
     size_t sum_distance = 0u;
 

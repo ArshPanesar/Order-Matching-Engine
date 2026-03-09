@@ -5,7 +5,7 @@
 
 // Core Defs
 
-#define CACHE_LINE_SIZE 64
+#define MAX_ALIGNMENT 64
 
 inline uintptr_t ComputeAlignedAddress(uintptr_t addr, size_t alignment) noexcept {
     return (addr + (alignment - 1)) & ~(alignment - 1);
@@ -17,14 +17,15 @@ inline size_t NextPowerOf2(size_t n) {
 
 // Main Allocator for the Engine (FreeList Implementation)
 // Intended to contain Large Heap Allocations that persist throughout the execution of the program
+// Alignment per Allocation Request must be a Power of 2 and Bounded to MAX_ALIGNMENT 
 class MemoryAllocator {
 private:
-    // Free List
-    struct Region {
+    // Free List Header
+    struct alignas(MAX_ALIGNMENT) Region {
         size_t size{}; // Total Size Available (Excluding Size of this Header)
-        size_t padding{}; // Any Padding applied BEFORE this Header (Used when Freeing Regions)
         Region* next = nullptr; // Next available Free Region
     };
+    static_assert(sizeof(Region) % MAX_ALIGNMENT == 0);
     
     Region* head;
 
@@ -33,8 +34,8 @@ private:
     size_t total_size;
 
     // Stats
-    size_t free_bytes; // Excluding Header Size
-    size_t allocated_bytes; // Excluding Header Size and Padding
+    size_t free_bytes;
+    size_t allocated_bytes;
 
     bool CanCoalesce(Region* prev, Region* next);
 
@@ -52,9 +53,9 @@ public:
     void* Allocate(size_t bytes, size_t alignment);
     void Free(void* ptr);
 
-    // Total Number of Bytes Allocated (excluding padding/header bytes)
+    // Total Number of Bytes Allocated
     size_t GetAllocatedBytes() const;
-    // Total Number of Free Bytes (excluding header bytes)
+    // Total Number of Free Bytes
     size_t GetFreeBytes() const;
     // Total Number of Heap Bytes
     size_t GetTotalBytes() const; 

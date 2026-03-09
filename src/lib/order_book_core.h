@@ -23,6 +23,8 @@ struct PriceLevel {
 // Implemented as a Fixed-Size Hash Table (Uses Robin Hood Hashing)
 class OrderTable {
 private:
+    MemoryAllocator& allocator;
+
     struct Slot {
         OrderID id{};
         OrderNode* order_node = nullptr;
@@ -35,7 +37,6 @@ private:
     size_t capacity;
     size_t size;
 
-    MemoryAllocator& allocator;
 private:
     inline uint64_t Hash(const OrderID& order_id) const {
         // MurmurHash3 Finalizer (64-bit)
@@ -73,7 +74,7 @@ public:
     size_t FindDistance(const OrderID& order_id) const;
     // Find the Maximum and Average Distances within Clusters
     void ComputeAvgAndMaxDistances(float& avg_distance, size_t& max_distance) const;
-    
+
 #endif //LOB_DEBUG
 };
 

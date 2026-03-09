@@ -2,6 +2,7 @@
 #include <cstring>
 #include <cstddef>
 #include <stdlib.h>
+#include <new>
 
 #include "memory_core.h"
 
@@ -22,9 +23,10 @@ MemoryAllocator::MemoryAllocator(size_t num_bytes) :
     allocated_bytes(0u) {
     // Additional Bytes for Header
     size_t required_size = num_bytes + sizeof(Region);
-    
+    required_size = ComputeAlignedAddress(required_size, MAX_ALIGNMENT);
+
     // Allocate Buffer
-    base_ptr = malloc(required_size);
+    base_ptr = ::operator new(required_size, std::align_val_t(MAX_ALIGNMENT));
     assert(base_ptr != nullptr);
     
     total_size = required_size;
@@ -33,7 +35,6 @@ MemoryAllocator::MemoryAllocator(size_t num_bytes) :
     // Initialize Free List
     head = reinterpret_cast<Region*>(base_ptr);
     head->size = total_size - sizeof(Region);
-    head->padding = 0u; // No padding for initial memory region
     head->next = nullptr;
 
     free_bytes = head->size;
@@ -42,7 +43,7 @@ MemoryAllocator::MemoryAllocator(size_t num_bytes) :
 MemoryAllocator::~MemoryAllocator() {
     // Immediately Clear all Acquired Heap Memory
     // FreeList Pointers are Invalidated, but will never be accessed after this point.
-    free(base_ptr);
+    ::operator delete(base_ptr, std::align_val_t(MAX_ALIGNMENT));
 }
 
 void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
@@ -55,62 +56,76 @@ void *MemoryAllocator::Allocate(size_t bytes, size_t alignment) {
     if (alignment == 0u)
         alignment = alignof(std::max_align_t);
     assert(bytes > 0 && (alignment & (alignment - 1)) == 0);
+    assert(alignment <= MAX_ALIGNMENT);
 
     // Find First Fit
     Region* avail = head;
     Region* prev = nullptr;
     while (avail != nullptr) {
-        // Align Address
-        uintptr_t avail_addr = reinterpret_cast<uintptr_t>(avail) + sizeof(Region);
-        uintptr_t aligned_addr = ComputeAlignedAddress(avail_addr, alignment);
-        size_t padding = aligned_addr - avail_addr;
+        // Check if enough size is available
+        if (avail->size >= bytes) {
+            size_t removed_bytes = 0u;
 
-        // Find Available Block
-        size_t required_size = bytes + padding;
-        size_t avail_size = avail->size;
-        if (required_size <= avail_size) {
-            // Can this Region be Divided?
-            size_t leftover_size = avail_size - required_size;
-            if (leftover_size > sizeof(Region)) { // Size must exceed atleast Header
-                // Divide Regions
-                uintptr_t leftover_region_addr = aligned_addr + bytes;
+            // Available Addresses will always aligned for powers of 2 upto MAX_ALIGNMENT
+            uintptr_t aligned_avail_addr = reinterpret_cast<uintptr_t>(avail) + sizeof(Region);
+            // Ending Address of this Allocation
+            uintptr_t alloc_end_addr = aligned_avail_addr + bytes;
 
-                // Place New Header at Leftover Region
-                Region* leftover = reinterpret_cast<Region*>(leftover_region_addr);
-                leftover->size = leftover_size - sizeof(Region);
-                leftover->padding = 0u;
+            // Possible Address for a New Region (if this Region can be split)
+            uintptr_t new_region_aligned_addr = ComputeAlignedAddress(alloc_end_addr, MAX_ALIGNMENT); 
 
-                // Remove Available Block from List and Add Leftover Block to List
+            // Ending Address of this Region
+            uintptr_t avail_end_addr = aligned_avail_addr + avail->size;
+
+            // Allocation Request to be fulfilled by Addresses [aligned_avail_addr, aligned_avail_addr + bytes]
+            // Check if Extra Space is available (to be reused by the FreeList)
+            if (avail_end_addr > (new_region_aligned_addr + sizeof(Region))) {
+                // Place the New Region Header
+                Region* leftover = reinterpret_cast<Region*>(new_region_aligned_addr);
+                leftover->size = avail_end_addr - new_region_aligned_addr - sizeof(Region);
                 leftover->next = avail->next;
+
+                // Add to Free List
                 if (prev != nullptr)
                     prev->next = leftover;
                 else
                     head = leftover;
+
+                // Store New Size of Allocated Region
+                avail->size = bytes;
+                // Removed Bytes: Caller Allocated, Leftover Header and Padding
+                removed_bytes = bytes + sizeof(Region) + (new_region_aligned_addr - alloc_end_addr);
             } else {
-                // No Division Possible, Use Entire Region
+                // Not enough leftover space, use entire Region
+                // Add to Free List
                 if (prev != nullptr)
                     prev->next = avail->next;
                 else
                     head = avail->next;
+
+                avail->size = avail_end_addr - aligned_avail_addr;
+                removed_bytes = avail->size;
             }
 
-            // Move Available Region's Header right before the aligned address
-            // This enables Free(ptr) to easily access the Header for any valid ptr 
-            uintptr_t moved_header_addr = aligned_addr - sizeof(Region);
-            Region* requested = reinterpret_cast<Region*>(moved_header_addr);
-            requested->size = bytes;
-            requested->padding = padding; // Behind this Header
-            requested->next = nullptr; // Region is no longer free
-            
-            // Consider Leftover Size for Free Bytes tracking as well       
-            free_bytes = (leftover_size > sizeof(Region)) ? free_bytes - required_size - sizeof(Region) : free_bytes - avail_size;
-            allocated_bytes += bytes;
+            // Region No Longer Free
+            avail->next = nullptr;
+
+            // Track Usage
+            free_bytes -= removed_bytes;
+            allocated_bytes += avail->size;
 
 #ifdef LOB_DEBUG
             RunVerificationTests();
 #endif //LOB_DEBUG
 
-            return reinterpret_cast<void*>(aligned_addr);
+            assert(aligned_avail_addr % alignment == 0);
+            assert(aligned_avail_addr % alignof(std::max_align_t) == 0);
+            assert(alloc_end_addr > aligned_avail_addr);
+            assert(alloc_end_addr - aligned_avail_addr >= bytes);
+            
+
+            // Return Aligned Pointer
+            return reinterpret_cast<void*>(aligned_avail_addr);
         }
         
         // Move to Next Free Region
@@ -136,22 +151,15 @@ void MemoryAllocator::Free(void *ptr) {
     assert(addr <= ((uintptr_t)base_ptr + total_size) && "MemoryAllocator tried to free invalid pointer!");
     
     // Move Address Backwards to get the Header
-    uintptr_t header_addr = addr - sizeof(Region);
+    uintptr_t orig_region_addr = addr - sizeof(Region);
     
     // Extract Header Info
-    Region* alloc_region = reinterpret_cast<Region*>(header_addr);
-    size_t alloc_size = alloc_region->size;
-    size_t alloc_padding = alloc_region->padding;
-
-    // Get Original Placement of Header
-    uintptr_t orig_region_addr = header_addr - alloc_padding;
-
-    // Recreate Free Region
     Region* orig_region = reinterpret_cast<Region*>(orig_region_addr);
-    orig_region->size = alloc_size + alloc_padding; // Exclude Header Size
-    orig_region->padding = 0u;
+    assert(orig_region->next == nullptr);
 
-    free_bytes += alloc_size + alloc_padding;
+    size_t alloc_size = orig_region->size;
+
+    free_bytes += alloc_size;
     allocated_bytes -= alloc_size;
 
     if (head == nullptr) {
@@ -185,7 +193,6 @@ void MemoryAllocator::Free(void *ptr) {
     // Try Merging with Next Region
     if (curr != nullptr && CanCoalesce(orig_region, curr)) {
         orig_region->size += sizeof(Region) + curr->size; // Padding not included since Free Regions should always have 0 Padding
-        orig_region->padding = 0u;
         orig_region->next = curr->next;
 
         free_bytes += sizeof(Region);
@@ -193,7 +200,6 @@ void MemoryAllocator::Free(void *ptr) {
     // Try Merging with Previous Region
     if (prev != nullptr && CanCoalesce(prev, orig_region)) {
         prev->size += sizeof(Region) + orig_region->size; // Padding not included since Free Regions should always have 0 Padding
-        prev->padding = 0u;
         prev->next = orig_region->next;
 
         free_bytes += sizeof(Region);

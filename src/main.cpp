@@ -21,13 +21,17 @@ public:
     ~FileOrderEventSink() = default;
     
     void Run() {
-
         reader_thread = std::jthread([&]() {
             std::ifstream input_file_stream(file_path, std::ios::binary);
             if (!input_file_stream.is_open()) {
                 std::cout << "FileOrderEventSink::Run(): File could not be opened\n";
                 return;
             }
+            
+            // Large Buffer for Fast Reading
+            constexpr size_t BUFFER_SIZE = 1 << 20; // 1 MB
+            char buffer[BUFFER_SIZE];
+            input_file_stream.rdbuf()->pubsetbuf(buffer, BUFFER_SIZE);
 
             OrderEvent event;
             while (input_file_stream.read(reinterpret_cast<char*>(&event), sizeof(OrderEvent))) {
@@ -69,7 +73,7 @@ public:
 
     void Run() {
         writer_thread = std::jthread([&]() {
-            std::ofstream output_file_stream(file_path, std::ios::binary);
+            std::ofstream output_file_stream(file_path, std::ios::binary | std::ios::out);
             if (!output_file_stream.is_open()) {
                 std::cout << "FileTradeEventSink::Run(): File could not be opened\n";
                 return;
@@ -80,16 +84,27 @@ public:
             char buffer[BUFFER_SIZE];
             output_file_stream.rdbuf()->pubsetbuf(buffer, BUFFER_SIZE);
 
+            // Batching
+            constexpr size_t BATCH_SIZE = 1 << 14;
+            std::vector<TradeEvent> event_batch(BATCH_SIZE);
+            size_t batch_count = 0;
+
             TradeEvent event;
             while (true) {
                 while (!queue.Pop(event));
-                output_file_stream.write(reinterpret_cast<const char*>(&event), sizeof(TradeEvent));
-                
+
+                event_batch[batch_count++] = event;
+                if (batch_count == BATCH_SIZE) {
+                    output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), sizeof(TradeEvent) * batch_count);
+                    batch_count = 0;
+                }
+
                 // Stop on Signal
                 if (event.type == eTradeEventType::STOP_EXECUTION)
                     break;
             }
-
+            if (batch_count > 0)
+                output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), sizeof(TradeEvent) * batch_count);
 
             output_file_stream.close();
         });
@@ -209,8 +224,8 @@ int main(int argc, char** argv) {
     MemoryAllocator mem_allocator(mem_params.mem_allocator_bytes);    
 
     // File Sinks
-    FileOrderEventSink file_order_sink(std::bit_ceil(max_orders), input_file_path);
-    FileTradeEventSink file_trade_sink(std::bit_ceil(max_orders), output_file_path);
+    FileOrderEventSink file_order_sink(NextPowerOf2(max_orders), input_file_path);
+    FileTradeEventSink file_trade_sink(NextPowerOf2(max_orders), output_file_path);
     
     MatchingEngine<FileOrderEventSink, FileTradeEventSink> matching_engine(file_order_sink, file_trade_sink, mem_allocator, 
         config.min_price, config.max_price, max_orders, mem_params.order_table_size);
@@ -224,7 +239,7 @@ int main(int argc, char** argv) {
     auto start = std::chrono::high_resolution_clock::now();
 
     while (matching_engine.Run());
-    
+
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     

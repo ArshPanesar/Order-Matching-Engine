@@ -58,7 +58,10 @@ target_link_libraries(Tools PRIVATE LimitOrderBookLib)
 
 target_compile_features(Tools PRIVATE cxx_std_20)
 
-
+target_compile_definitions(Tools PRIVATE
+    $<$<CONFIG:Debug>:LOB_DEBUG>
+    $<$<CONFIG:Release>:LOB_RELEASE>
+)
 
 # 
 # Main Executable
@@ -84,9 +87,16 @@ target_link_libraries(OrderMatchingEngine PRIVATE LimitOrderBookLib)
 
 target_compile_features(OrderMatchingEngine PRIVATE cxx_std_20)
 
-# 
-# Testing
-# 
+target_compile_definitions(OrderMatchingEngine PRIVATE
+    $<$<CONFIG:Debug>:LOB_DEBUG>
+    $<$<CONFIG:Release>:LOB_RELEASE>
+)
 
-enable_testing()
-add_subdirectory(tests)
+
+# 
+# Testing (Only for Debug Builds)
+# 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    enable_testing()
+    add_subdirectory(tests)
+endif()
