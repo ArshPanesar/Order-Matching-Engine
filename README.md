@@ -1,3 +1,6 @@
+
+[![CI](https://github.com/ArshPanesar/Order-Matching-Engine/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/ArshPanesar/Order-Matching-Engine/actions/workflows/ci.yml)
+
 # Order Matching Engine
 
 A High-Performance Limit Order Book implementation (written in C++20).
