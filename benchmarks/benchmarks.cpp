@@ -49,8 +49,13 @@ void BenchmarkOrderBook(size_t allocation_bytes, OrderPrice min_price, OrderPric
     {
         BenchmarkTimer timer(&find_duration_ns);
 
-        for (size_t i = 0; i < generated_order_events.size(); ++i)
-            order_book.GetOrderByID(generated_order_events[i].order.id);
+        size_t count = 0u;
+        for (size_t i = 0; i < generated_order_events.size(); ++i) {
+            auto node = order_book.GetOrderByID(generated_order_events[i].order.id);
+            count = (node != nullptr) ? count + 1 : count;
+        }
+        if (count != generated_order_events.size())
+            std::cout << "OrderBook searched for " << count << " Order IDs\n";
     }
     // Removal
     {
@@ -66,8 +71,9 @@ void BenchmarkOrderBook(size_t allocation_bytes, OrderPrice min_price, OrderPric
     };
     double insert_ops_per_sec = num_order_events / ConvertNanoToSeconds(insert_duration_ns);
     double remove_ops_per_sec = num_order_events / ConvertNanoToSeconds(remove_duration_ns);
+    double find_ops_per_sec = num_order_events / ConvertNanoToSeconds(find_duration_ns);
     
-    double find_ns_per_op = find_duration_ns / num_order_events;
+    // double find_ns_per_op = find_duration_ns / num_order_events;
 
     std::cout << "OrderBook Stats for " << num_order_events << " Orders [Only Storage, No Matching Logic]\n";
 
@@ -77,8 +83,8 @@ void BenchmarkOrderBook(size_t allocation_bytes, OrderPrice min_price, OrderPric
     std::cout << "Removal: " << std::fixed << std::setprecision(3) << remove_duration_ns / 1e6 << " ms\n";
     std::cout << "Removal (ops/s): " << std::fixed << std::setprecision(0) << remove_ops_per_sec << "\n";
 
-    std::cout << "Search [Table Lookup]: " << std::fixed << std::setprecision(3) << find_duration_ns << " ns\n";
-    std::cout << "Search [Table Lookup]: " << std::fixed << std::setprecision(5) << find_ns_per_op << " ns/op\n";
+    std::cout << "Search [Table Lookup]: " << std::fixed << std::setprecision(3) << find_duration_ns / 1e6 << " ms\n";
+    std::cout << "Search [Table Lookup] (ops/s): " << std::fixed << std::setprecision(0) << find_ops_per_sec << "\n";
 }
 
 void BenchmarkMatchingEngine(size_t allocation_bytes, OrderPrice min_price, OrderPrice max_price, size_t num_order_events, 
