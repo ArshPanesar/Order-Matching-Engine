@@ -21,6 +21,7 @@ public:
     ~FileOrderEventSink() = default;
     
     void Run() {
+        std::cout << "Starting Reader Thread on File " << file_path << "\n";
         reader_thread = std::jthread([&]() {
             std::ifstream input_file_stream(file_path, std::ios::binary);
             if (!input_file_stream.is_open()) {
@@ -72,6 +73,7 @@ public:
     }
 
     void Run() {
+        std::cout << "Starting Writer Thread on File " << file_path << "\n";
         writer_thread = std::jthread([&]() {
             std::ofstream output_file_stream(file_path, std::ios::binary | std::ios::out);
             if (!output_file_stream.is_open()) {
@@ -238,6 +240,8 @@ int main(int argc, char** argv) {
     file_trade_sink.Run();
 
     // Run Matching Engine
+    std::cout << "Running Matching Engine in Main Thread\n";
+
     auto start = std::chrono::high_resolution_clock::now();
 
     while (matching_engine.Run());
@@ -245,7 +249,8 @@ int main(int argc, char** argv) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     
-    std::cout << "Engine Duration: " << duration.count() << " ms" << std::endl;
-    
+    std::cout << "Engine Duration: " << duration.count() << " ms\n" << std::endl;
+    std::cout << "Done.\n";
+
     return 0;
 }

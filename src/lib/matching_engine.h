@@ -57,82 +57,16 @@ private:
         auto GetOppositeSideBestOrder = [&]() -> OrderNode* {
             return (order_side == eOrderSide::BID) ? order_book.AccessBestAsk() : order_book.AccessBestBid();
         };
-        auto IsBookCrossed = [&](const OrderNode* best_opp_side_order) -> bool {
-            // Order crosses the Book if:
+        auto IsBookCrossed = [&](const eOrderType& order_type, const OrderNode* best_opp_side_order) -> bool {
+            // A MARKET Order always crosses the Book
+            // A LIMIT Order crosses the Book if:
             // 1. Its a Bid and its Price is Higher than Best Ask
             // OR
             // 2. Its an Ask and its Price is Lower than Best Bid
-            return (order_side == eOrderSide::BID) ? (new_order.price >= best_opp_side_order->price) : (new_order.price <= best_opp_side_order->price);
+            return (order_type == eOrderType::MARKET) || ((order_side == eOrderSide::BID) ? (new_order.price >= best_opp_side_order->price) : (new_order.price <= best_opp_side_order->price));
         };
-
-        if (order_type == eOrderType::LIMIT) {
-            // New Limit Order
-            //
-            // Check if Order crosses the Book
-            OrderNode* current_best_opp = GetOppositeSideBestOrder();
-            if (current_best_opp == nullptr) {
-                // Book Empty on Opposite Side, New Order must rest!
-                order_book.AddOrder(new_order, order_side);
-                return;
-            }
-
-            if (IsBookCrossed(current_best_opp)) {
-                // Crossed the Book
-                // Dummy OrderNode for Crossing Logic
-                OrderNode new_order_node{};
-                new_order_node.id = new_order.id;
-                new_order_node.price = new_order.price;
-                new_order_node.current_quantity = new_order.initial_quantity;
-
-                while (current_best_opp != nullptr && IsBookCrossed(current_best_opp) && new_order_node.current_quantity > 0) {
-                    // Execute Trade
-                    OrderQuantity trade_quantity = std::min(new_order_node.current_quantity, current_best_opp->current_quantity);
-                    new_order_node.current_quantity -= trade_quantity;
-                    current_best_opp->current_quantity -= trade_quantity;
-                    
-                    // Generate Trade Event
-                    TradeEvent new_trade_event = GenerateTradeEvent(&new_order_node, current_best_opp, order_side, current_best_opp->price, trade_quantity, new_order.timestamp);
-                    // Immediately Push to Sink
-                    trade_event_sink.Accept(new_trade_event);
-
-                    if (current_best_opp->current_quantity == 0) 
-                        order_book.RemoveOrder(current_best_opp->id);  // Resting Order Fully Filled
-
-                    // New Order fully filled
-                    if (new_order_node.current_quantity == 0)
-                        break;
-                                        
-                    // Move to next
-                    current_best_opp = GetOppositeSideBestOrder();
-                }
-                new_order.remaining_quantity = new_order_node.current_quantity;
-
-                // Add New Order to the Book if it still has Non-Zero Quantity
-                if (new_order_node.current_quantity > 0) {
-                    current_best_opp = GetOppositeSideBestOrder();
-                    if (current_best_opp == nullptr || !IsBookCrossed(current_best_opp))
-                        order_book.AddOrder(new_order, order_side);
-                }
-
-            } else {
-                // Does not Cross the Book, Must Rest
-                order_book.AddOrder(new_order, order_side);
-            }
-        } else if (order_type == eOrderType::MARKET) {
-            // Check Opposite Side
-            OrderNode* current_best_opp = GetOppositeSideBestOrder();
-            if (current_best_opp == nullptr) {
-                // Market Order Rejected
-                return;
-            }
-
-            // Duplicated Limit Order Matching Loop (slightly changed for Market Order) for Clarity
-            // Dummy OrderNode for Crossing Logic
-            OrderNode new_order_node{};
-            new_order_node.id = new_order.id;
-            new_order_node.price = new_order.price;
-            new_order_node.current_quantity = new_order.initial_quantity;
-            while (current_best_opp != nullptr && new_order_node.current_quantity > 0) {
+        auto PerformMatching = [&](OrderNode* current_best_opp, OrderNode& new_order_node, const eOrderType& order_type) {
+            while (current_best_opp != nullptr && IsBookCrossed(order_type, current_best_opp) && new_order_node.current_quantity > 0) {
                 // Execute Trade
                 OrderQuantity trade_quantity = std::min(new_order_node.current_quantity, current_best_opp->current_quantity);
                 new_order_node.current_quantity -= trade_quantity;
@@ -153,6 +87,55 @@ private:
                 // Move to next
                 current_best_opp = GetOppositeSideBestOrder();
             }
+        };
+
+        if (order_type == eOrderType::LIMIT) {
+            // New Limit Order
+            //
+            // Check if Order crosses the Book
+            OrderNode* current_best_opp = GetOppositeSideBestOrder();
+            if (current_best_opp == nullptr) {
+                // Book Empty on Opposite Side, New Order must rest!
+                order_book.AddOrder(new_order, order_side);
+                return;
+            }
+
+            if (IsBookCrossed(order_type, current_best_opp)) {
+                // Crossed the Book
+                // Dummy OrderNode for Crossing Logic
+                OrderNode new_order_node{};
+                new_order_node.id = new_order.id;
+                new_order_node.price = new_order.price;
+                new_order_node.current_quantity = new_order.initial_quantity;
+
+                PerformMatching(current_best_opp, new_order_node, order_type);
+                new_order.remaining_quantity = new_order_node.current_quantity;
+
+                // Add New Order to the Book if it still has Non-Zero Quantity
+                if (new_order_node.current_quantity > 0) {
+                    current_best_opp = GetOppositeSideBestOrder();
+                    if (current_best_opp == nullptr || !IsBookCrossed(order_type, current_best_opp))
+                        order_book.AddOrder(new_order, order_side);
+                }
+
+            } else {
+                // Does not Cross the Book, Must Rest
+                order_book.AddOrder(new_order, order_side);
+            }
+        } else if (order_type == eOrderType::MARKET) {
+            // Check Opposite Side
+            OrderNode* current_best_opp = GetOppositeSideBestOrder();
+            if (current_best_opp == nullptr) {
+                // Market Order Rejected
+                return;
+            }
+
+            // Dummy OrderNode for Crossing Logic
+            OrderNode new_order_node{};
+            new_order_node.id = new_order.id;
+            new_order_node.price = new_order.price;
+            new_order_node.current_quantity = new_order.initial_quantity;
+            PerformMatching(current_best_opp, new_order_node, order_type);
         }
     }
 
