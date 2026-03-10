@@ -7,13 +7,13 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  build_gcc:
+    name: Build (GCC)
     runs-on: ubuntu-latest
 
     # Support both GCC and Clang
     strategy:
       matrix: 
-        compiler: [g++, clang++]
         build_type: [Debug, Release]
     
     steps:
@@ -21,15 +21,15 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++
       
       - name: Configure CMake
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+        run: cmake -B build-${{ matrix.build_type }} -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=g++
 
       - name: Build Project
-        run: cmake --build build
+        run: cmake --build build-${{ matrix.build_type }}
       
       - name: Run Tests
         if: matrix.build_type == 'Debug' # Tests only run in Debug Mode
-        run: ctest --test-dir build
+        run: ctest --test-dir build-${{ matrix.build_type }} # Expands to Debug only
  
