@@ -11,7 +11,6 @@ jobs:
     name: Build (GCC)
     runs-on: ubuntu-latest
 
-    # Support both GCC and Clang
     strategy:
       matrix: 
         build_type: [Debug, Release]
@@ -23,13 +22,44 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++
       
+      - name: Clean Build Directory
+        run: rm -rf build-${{ matrix.build_type }}-gcc # Force a Clean Build
+      
       - name: Configure CMake
-        run: cmake -B build-${{ matrix.build_type }} -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=g++
+        run: cmake -B build-${{ matrix.build_type }}-gcc -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=g++
 
       - name: Build Project
-        run: cmake --build build-${{ matrix.build_type }}
+        run: cmake --build build-${{ matrix.build_type }}-gcc --verbose
       
       - name: Run Tests
         if: matrix.build_type == 'Debug' # Tests only run in Debug Mode
-        run: ctest --test-dir build-${{ matrix.build_type }} # Expands to Debug only
+        run: ctest --test-dir build-${{ matrix.build_type }}-gcc # Expands to Debug only
+  
+  build_clang:
+    name: Build (Clang)
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix: 
+        build_type: [Debug, Release]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang
+      
+      - name: Clean Build Directory
+        run: rm -rf build-${{ matrix.build_type }}-clang # Force a Clean Build
+
+      - name: Configure CMake
+        run: cmake -B build-${{ matrix.build_type }}-clang -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build Project
+        run: cmake --build build-${{ matrix.build_type }}-clang --verbose
+      
+      - name: Run Tests
+        if: matrix.build_type == 'Debug' # Tests only run in Debug Mode
+        run: ctest --test-dir build-${{ matrix.build_type }}-clang # Expands to Debug only
  
