@@ -57,7 +57,7 @@ private:
         auto GetOppositeSideBestOrder = [&]() -> OrderNode* {
             return (order_side == eOrderSide::BID) ? order_book.AccessBestAsk() : order_book.AccessBestBid();
         };
-        auto IsBookCrossed = [&](const eOrderType& order_type, const OrderNode* best_opp_side_order) -> bool {
+        auto IsBookCrossed = [&](const OrderNode* best_opp_side_order) -> bool {
             // A MARKET Order always crosses the Book
             // A LIMIT Order crosses the Book if:
             // 1. Its a Bid and its Price is Higher than Best Ask
@@ -65,8 +65,8 @@ private:
             // 2. Its an Ask and its Price is Lower than Best Bid
             return (order_type == eOrderType::MARKET) || ((order_side == eOrderSide::BID) ? (new_order.price >= best_opp_side_order->price) : (new_order.price <= best_opp_side_order->price));
         };
-        auto PerformMatching = [&](OrderNode* current_best_opp, OrderNode& new_order_node, const eOrderType& order_type) {
-            while (current_best_opp != nullptr && IsBookCrossed(order_type, current_best_opp) && new_order_node.current_quantity > 0) {
+        auto PerformMatching = [&](OrderNode* current_best_opp, OrderNode& new_order_node) {
+            while (current_best_opp != nullptr && IsBookCrossed(current_best_opp) && new_order_node.current_quantity > 0) {
                 // Execute Trade
                 OrderQuantity trade_quantity = std::min(new_order_node.current_quantity, current_best_opp->current_quantity);
                 new_order_node.current_quantity -= trade_quantity;
@@ -100,7 +100,7 @@ private:
                 return;
             }
 
-            if (IsBookCrossed(order_type, current_best_opp)) {
+            if (IsBookCrossed(current_best_opp)) {
                 // Crossed the Book
                 // Dummy OrderNode for Crossing Logic
                 OrderNode new_order_node{};
@@ -108,13 +108,13 @@ private:
                 new_order_node.price = new_order.price;
                 new_order_node.current_quantity = new_order.initial_quantity;
 
-                PerformMatching(current_best_opp, new_order_node, order_type);
+                PerformMatching(current_best_opp, new_order_node);
                 new_order.remaining_quantity = new_order_node.current_quantity;
 
                 // Add New Order to the Book if it still has Non-Zero Quantity
                 if (new_order_node.current_quantity > 0) {
                     current_best_opp = GetOppositeSideBestOrder();
-                    if (current_best_opp == nullptr || !IsBookCrossed(order_type, current_best_opp))
+                    if (current_best_opp == nullptr || !IsBookCrossed(current_best_opp))
                         order_book.AddOrder(new_order, order_side);
                 }
 
@@ -135,7 +135,7 @@ private:
             new_order_node.id = new_order.id;
             new_order_node.price = new_order.price;
             new_order_node.current_quantity = new_order.initial_quantity;
-            PerformMatching(current_best_opp, new_order_node, order_type);
+            PerformMatching(current_best_opp, new_order_node);
         }
     }
 

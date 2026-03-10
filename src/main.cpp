@@ -97,7 +97,7 @@ public:
 
                 event_batch[batch_count++] = event;
                 if (batch_count == BATCH_SIZE) {
-                    output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), sizeof(TradeEvent) * batch_count);
+                    output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), static_cast<std::streamsize>(sizeof(TradeEvent) * batch_count));
                     batch_count = 0;
                 }
 
@@ -106,7 +106,7 @@ public:
                     break;
             }
             if (batch_count > 0)
-                output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), sizeof(TradeEvent) * batch_count);
+                output_file_stream.write(reinterpret_cast<const char*>(event_batch.data()), static_cast<std::streamsize>(sizeof(TradeEvent) * batch_count));
 
             output_file_stream.close();
         });

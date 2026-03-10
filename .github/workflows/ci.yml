@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Support both GCC and Clang
+    strategy:
+      matrix: 
+        compiler: [g++, clang++]
+        build_type: [Debug, Release]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang
+      
+      - name: Configure CMake
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler }}
+
+      - name: Build Project
+        run: cmake --build build
+      
+      - name: Run Tests
+        if: matrix.build_type == 'Debug' # Tests only run in Debug Mode
+        run: ctest --test-dir build
+ 

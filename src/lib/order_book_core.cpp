@@ -313,7 +313,7 @@ size_t PriceLevelBitset::GetBestBidPriceLevel() const {
     for (size_t i = num_words; i-- > 0;) {
         Bit64 word = words[i];
         if (word != 0) {
-            int word_position = 63 - std::countl_zero(word);
+            size_t word_position = static_cast<size_t>(63 - std::countl_zero(word));
             return ((i << 6) + word_position);
         }
     }
@@ -324,7 +324,7 @@ size_t PriceLevelBitset::GetBestAskPriceLevel() const {
     for (size_t i = 0; i < num_words; ++i) {
         Bit64 word = words[i];
         if (word != 0) {
-            int word_position = std::countr_zero(word);
+            size_t word_position = static_cast<size_t>(std::countr_zero(word));
             return ((i << 6) + word_position);
         }
     }
