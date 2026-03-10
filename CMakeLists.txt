@@ -26,8 +26,11 @@ target_compile_features(LimitOrderBookLib PRIVATE cxx_std_20)
 target_compile_options(LimitOrderBookLib PRIVATE
     $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
-    $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
+    $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
 )
+
+# Enable LTO for Release Builds
+set_target_properties(LimitOrderBookLib PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 
 # Macro Definitions
 target_compile_definitions(LimitOrderBookLib PRIVATE
@@ -50,13 +53,16 @@ target_sources(Tools PRIVATE
 target_compile_options(Tools PRIVATE
     $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
-    $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
+    $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
 )
 
 # Link to LimitOrderBookLib
 target_link_libraries(Tools PRIVATE LimitOrderBookLib)
 
 target_compile_features(Tools PRIVATE cxx_std_20)
+
+# Enable LTO for Release Builds
+set_target_properties(Tools PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 
 target_compile_definitions(Tools PRIVATE
     $<$<CONFIG:Debug>:LOB_DEBUG>
@@ -79,13 +85,16 @@ target_sources(OrderMatchingEngine PRIVATE
 target_compile_options(OrderMatchingEngine PRIVATE
     $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
-    $<$<CONFIG:Release>: -O3 -march=native -flto -DNDEBUG>
+    $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
 )
 
 # Link to LimitOrderBookLib
 target_link_libraries(OrderMatchingEngine PRIVATE LimitOrderBookLib)
 
 target_compile_features(OrderMatchingEngine PRIVATE cxx_std_20)
+
+# Enable LTO for Release Builds
+set_target_properties(OrderMatchingEngine PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
 
 target_compile_definitions(OrderMatchingEngine PRIVATE
     $<$<CONFIG:Debug>:LOB_DEBUG>

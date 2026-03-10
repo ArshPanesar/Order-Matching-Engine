@@ -13,5 +13,8 @@ target_link_libraries(Benchmarks PRIVATE
 target_compile_features(Benchmarks PRIVATE cxx_std_20)
 
 target_compile_options(Benchmarks PRIVATE
-    $<$<CONFIG:Release>:-O3 -march=native -flto -DNDEBUG>
+    $<$<CONFIG:Release>:-O3 -march=native -DNDEBUG>
 )
+
+# Enable LTO for Release Builds
+set_target_properties(Benchmarks PROPERTIES INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)

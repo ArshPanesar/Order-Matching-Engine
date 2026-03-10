@@ -22,9 +22,6 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++
       
-      - name: Clean Build Directory
-        run: rm -rf build-${{ matrix.build_type }}-gcc # Force a Clean Build
-      
       - name: Configure CMake
         run: cmake -B build-${{ matrix.build_type }}-gcc -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_COMPILER=g++
 
@@ -49,9 +46,6 @@ jobs:
       
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang
-      
-      - name: Clean Build Directory
-        run: rm -rf build-${{ matrix.build_type }}-clang # Force a Clean Build
 
       - name: Configure CMake
         run: cmake -B build-${{ matrix.build_type }}-clang -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
