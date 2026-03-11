@@ -24,9 +24,13 @@ target_compile_features(LimitOrderBookLib PRIVATE cxx_std_20)
 
 # Compiler Options
 target_compile_options(LimitOrderBookLib PRIVATE
-    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion -g -fsanitize=address,undefined -fno-omit-frame-pointer>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
     $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
+)
+
+target_link_options(LimitOrderBookLib PUBLIC  
+    $<$<CONFIG:Debug>: -fsanitize=address,undefined>
 )
 
 # Enable LTO for Release Builds
@@ -51,13 +55,17 @@ target_sources(Tools PRIVATE
 
 # Compiler Options
 target_compile_options(Tools PRIVATE
-    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion -g -fsanitize=address,undefined -fno-omit-frame-pointer>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
     $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
 )
 
 # Link to LimitOrderBookLib
 target_link_libraries(Tools PRIVATE LimitOrderBookLib)
+
+target_link_options(Tools PUBLIC  
+    $<$<CONFIG:Debug>: -fsanitize=address,undefined>
+)
 
 target_compile_features(Tools PRIVATE cxx_std_20)
 
@@ -83,13 +91,17 @@ target_sources(OrderMatchingEngine PRIVATE
 
 # Compiler Options
 target_compile_options(OrderMatchingEngine PRIVATE
-    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion>
+    $<$<CONFIG:Debug>: -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion -g -fsanitize=address,undefined -fno-omit-frame-pointer>
     $<$<CONFIG:RelWithDebInfo>: -O3 -g -fno-omit-frame-pointer>
     $<$<CONFIG:Release>: -O3 -march=native -DNDEBUG>
 )
 
 # Link to LimitOrderBookLib
 target_link_libraries(OrderMatchingEngine PRIVATE LimitOrderBookLib)
+
+target_link_options(OrderMatchingEngine PUBLIC 
+    $<$<CONFIG:Debug>: -fsanitize=address,undefined>
+)
 
 target_compile_features(OrderMatchingEngine PRIVATE cxx_std_20)
 
